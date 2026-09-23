@@ -15,18 +15,18 @@ const travelExpenseSchema = new mongoose.Schema({
   season: {
     type: String,
     required: true,
-    default: '2024./2025.',
+    default: '2026./2027.',
     trim: true
   },
   year: {
     type: Number,
     required: true,
-    enum: [2024, 2025],
+    enum: [2024, 2025, 2026, 2027],
     validate: {
       validator: function(value) {
-        return value >= 2024 && value <= 2025;
+        return value >= 2024 && value <= 2027;
       },
-      message: 'Year must be 2024 or 2025'
+      message: 'Year must be between 2024 and 2027'
     }
   },
   month: {
@@ -42,7 +42,7 @@ const travelExpenseSchema = new mongoose.Schema({
   state: {
     type: String,
     required: true,
-    enum: ['Skica', 'Predano'],
+    enum: ['Skica', 'Predano', 'Potvrđeno', 'Odbijeno'],
     default: 'Skica'
   },
   userId: {
@@ -115,6 +115,18 @@ const travelExpenseSchema = new mongoose.Schema({
       type: Number,
       required: true,
       min: 0
+    },
+    gameId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'BasketballGame'
+    },
+    homeTeam: {
+      type: String,
+      trim: true
+    },
+    awayTeam: {
+      type: String,
+      trim: true
     }
   }],
   totalAmount: {
@@ -137,10 +149,21 @@ const travelExpenseSchema = new mongoose.Schema({
     trim: true
   }
 }, {
-  timestamps: true, // Automatically adds createdAt and updatedAt
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  timestamps: true
 });
+
+travelExpenseSchema.set('toJSON', {
+  virtuals: true,
+  transform: (_doc, ret) => {
+    ret.id = ret._id ? ret._id.toString() : ret.id;
+    if (ret.userId && typeof ret.userId === 'object') {
+      ret.userName = ret.userId.name;
+      ret.userSurname = ret.userId.surname;
+    }
+    return ret;
+  }
+});
+travelExpenseSchema.set('toObject', { virtuals: true });
 
 // Virtual field for userName
 travelExpenseSchema.virtual('userName', {

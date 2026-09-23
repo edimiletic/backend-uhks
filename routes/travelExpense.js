@@ -4,33 +4,33 @@ const router = express.Router();
 const TravelExpense = require('../models/TravelExpense');
 const User = require('../models/User');
 const authenticateUser = require('../middleware/authMiddleware');
-const {requireRole} = require('../middleware/roleMiddleware')
+const {requireRole} = require('../middleware/roleMiddleware');
 
-// Apply authentication middleware to all routes
 router.use(authenticateUser);
-router.use(requireRole(['Admin']))
 
-// CREATE - Create a new travel expense report (Admin only)
+const isAdminUser = (user) => user?.role === 'Admin';
+const isOwner = (expense, user) => expense.userId.toString() === user._id.toString();
+const isEditableByOfficial = (state) => state === 'Skica' || state === 'Odbijeno';
+
+// CREATE - officials create their own report; admins can create for anyone
 router.post('/', async (req, res) => {
   try {
     const { type, season, year, month, userId } = req.body;
 
-    // Validate required fields
     if (!type || !season || !year || !month) {
       return res.status(400).json({ 
         error: 'Missing required fields: type, season, year, month' 
       });
     }
 
-    // Determine which user the report is for
-    // Admin can create for any user via userId, otherwise create for self
-    const targetUserId = userId || req.user._id;
-
-    // If admin is creating for someone else, validate the user exists
-    if (userId && userId !== req.user._id.toString()) {
-      const targetUser = await User.findById(userId);
-      if (!targetUser) {
-        return res.status(404).json({ error: 'Target user not found' });
+    let targetUserId = req.user._id;
+    if (isAdminUser(req.user) && userId) {
+      targetUserId = userId;
+      if (userId !== req.user._id.toString()) {
+        const targetUser = await User.findById(userId);
+        if (!targetUser) {
+          return res.status(404).json({ error: 'Target user not found' });
+        }
       }
     }
 
@@ -85,7 +85,7 @@ router.get('/my', async (req, res) => {
 });
 
 // READ - Get all travel expenses (admin/manager functionality)
-router.get('/', async (req, res) => {
+router.get('/', requireRole(['Admin']), async (req, res) => {
   try {
     // Extract filter parameters from query string
     const { id, type, userName, year, month, state } = req.query;
@@ -135,10 +135,11 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Travel expense not found' });
     }
 
-    // UPDATED: Check if user owns this expense or is admin/manager (case-insensitive)
-    const userRole = req.user.role.toLowerCase(); // Convert to lowercase for comparison
-    if (expense.userId._id.toString() !== req.user._id.toString() && 
-        !['admin', 'manager'].includes(userRole)) {
+    // Admin-only router; still ensure the report exists
+    const reportUserId = expense.userId._id
+      ? expense.userId._id.toString()
+      : expense.userId.toString();
+    if (reportUserId !== req.user._id.toString() && req.user.role !== 'Admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -154,65 +155,37 @@ router.get('/:id', async (req, res) => {
 // UPDATE - Update an existing travel expense
 router.put('/:id', async (req, res) => {
   try {
-    console.log('PUT route hit with data:', req.body); // Debug log
-    console.log('User role:', req.user.role); // Debug log
-    
     const expense = await TravelExpense.findById(req.params.id);
 
     if (!expense) {
       return res.status(404).json({ error: 'Travel expense not found' });
     }
 
-    console.log('Expense found:', expense.id, 'Current state:', expense.state); // Debug log
-
-    // UPDATED: Check if user owns this expense or is admin/manager (case-insensitive)
-    const userRole = req.user.role.toLowerCase(); // Convert to lowercase for comparison
-    if (expense.userId.toString() !== req.user._id.toString() && 
-        !['admin', 'manager'].includes(userRole)) {
-      console.log('Access denied - not owner and not admin/manager'); // Debug log
+    if (!isOwner(expense, req.user) && !isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Don't allow updates if already approved (unless admin)
-    if (expense.state === 'Potvrđeno' && userRole !== 'admin') {
-      console.log('Cannot modify approved report - user is not admin'); // Debug log
-      return res.status(400).json({ error: 'Cannot modify approved expense report' });
+    if (expense.state === 'Potvrđeno') {
+      return res.status(400).json({ error: 'Cannot modify an approved expense report' });
     }
 
-    const { type, season, year, month, state, expenses, reviewComments } = req.body;
+    if (expense.state === 'Predano' && !isAdminUser(req.user)) {
+      return res.status(400).json({ error: 'Cannot modify a submitted expense report' });
+    }
 
-    console.log('Updating fields:', { type, season, year, month, state, reviewComments }); // Debug log
+    const { type, season, year, month, expenses } = req.body;
 
-    // Update fields
     if (type) expense.type = type;
     if (season) expense.season = season;
     if (year) expense.year = year;
     if (month) expense.month = month;
     if (expenses) expense.expenses = expenses;
-    if (reviewComments !== undefined) expense.reviewComments = reviewComments;
-
-    // Handle state changes
-    if (state && state !== expense.state) {
-      console.log('State changing from', expense.state, 'to', state); // Debug log
-      expense.state = state;
-      
-      if (state === 'Predano') {
-        expense.submittedAt = new Date();
-        console.log('Set submittedAt for Predano state'); // Debug log
-      } 
-      // else if (['Potvrđeno', 'Odbijeno'].includes(state)) {
-      //   expense.reviewedAt = new Date();
-      //   expense.reviewedBy = req.user._id;
-      //   console.log('Set reviewedAt and reviewedBy for', state, 'state'); // Debug log
-      // }
-    }
 
     const updatedExpense = await expense.save();
     
     await updatedExpense.populate('userId', 'name surname');
     await updatedExpense.populate('reviewedBy', 'name surname');
 
-    console.log('Sending response with updated expense'); // Debug log
     res.json(updatedExpense);
   } catch (error) {
     console.error('Update travel expense error:', error);
@@ -235,18 +208,18 @@ router.delete('/:id', async (req, res) => {
     }
 
     // Check if user owns this expense or is admin
-    if (expense.userId.toString() !== req.user._id.toString() && req.user.role !== 'Admin') {
+    if (!isOwner(expense, req.user) && !isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Role-based access control for deletion
-    // Only allow deletion if:
-    // 1. Report is in 'Skica' state, OR
-    // 2. User has 'Admin' role
-    if (['Predano'].includes(expense.state) && req.user.role !== 'Admin') {
-      return res.status(400).json({ 
-        error: 'Cannot delete submitted, approved, or rejected reports. Only Admin can perform this action.' 
+    if (!isEditableByOfficial(expense.state) && !isAdminUser(req.user)) {
+      return res.status(400).json({
+        error: 'Cannot delete submitted or approved reports.'
       });
+    }
+
+    if (expense.state === 'Potvrđeno') {
+      return res.status(400).json({ error: 'Cannot delete an approved expense report' });
     }
 
     await TravelExpense.findByIdAndDelete(id);
@@ -262,33 +235,24 @@ router.delete('/:id', async (req, res) => {
 // PATCH - Add expense item to a travel expense report
 router.patch('/:id/expenses', async (req, res) => {
   try {
-    console.log('Received expense item data:', req.body); // Debug log
-
     const expense = await TravelExpense.findById(req.params.id);
 
     if (!expense) {
       return res.status(404).json({ error: 'Travel expense not found' });
     }
-    const userRole = req.user.role.toLowerCase();
-    // Check if user owns this expense
-    if (expense.userId.toString() !== req.user._id.toString() && userRole !== 'admin') {
+
+    if (!isOwner(expense, req.user) && !isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Role-based access control for adding expense items
-    // Only allow adding items if:
-    // 1. Report is in 'Skica' state, OR
-    // 2. User has 'Admin' role
-    if (['Predano'].includes(expense.state) && req.user.role !== 'Admin') {
-      return res.status(400).json({ 
-        error: 'Cannot add expense items to submitted, approved, or rejected reports. Only Admin can perform this action.' 
+    if (!isEditableByOfficial(expense.state)) {
+      return res.status(400).json({
+        error: 'Cannot add expense items to submitted or approved reports.'
       });
     }
 
     // Updated field validation for new model structure
-    const { type, date, description, unit, quantity, unitPrice, competition, amount } = req.body;
-
-    console.log('Extracted fields:', { type, date, description, unit, quantity, unitPrice, competition, amount }); // Debug log
+    const { type, date, description, unit, quantity, unitPrice, competition, gameId, homeTeam, awayTeam } = req.body;
 
     if (!type || !date || !description || !unit || quantity === undefined || unitPrice === undefined || !competition) {
       return res.status(400).json({ 
@@ -312,20 +276,15 @@ router.patch('/:id/expenses', async (req, res) => {
       quantity: Number(quantity), // Ensure it's a number
       unitPrice: Number(unitPrice), // Ensure it's a number
       competition,
-      amount: Number(quantity) * Number(unitPrice) // Calculate amount server-side
+      amount: Number(quantity) * Number(unitPrice), // Calculate amount server-side
+      gameId: gameId || undefined,
+      homeTeam: homeTeam || undefined,
+      awayTeam: awayTeam || undefined
     };
 
-    console.log('Created expense item:', expenseItem); // Debug log
-
-    // Add the expense item
     expense.expenses.push(expenseItem);
 
-    console.log('Before save - expense.expenses:', expense.expenses); // Debug log
-
-    const updatedExpense = await expense.save();
-    
-    console.log('Successfully saved expense'); // Debug log
-    
+    const updatedExpense = await expense.save(); 
     await updatedExpense.populate('userId', 'name surname');
 
     res.json(updatedExpense);
@@ -363,14 +322,13 @@ router.patch('/:id/submit', async (req, res) => {
     }
 
     // Check if user owns this expense
-    if (expense.userId.toString() !== req.user._id.toString()) {
+    if (!isOwner(expense, req.user)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Validate current state - can only submit drafts
-    if (expense.state !== 'Skica') {
-      return res.status(400).json({ 
-        error: `Cannot submit ${expense.state.toLowerCase()} expense report. Only drafts can be submitted.` 
+    if (!isEditableByOfficial(expense.state)) {
+      return res.status(400).json({
+        error: 'Only draft or rejected reports can be submitted.'
       });
     }
 
@@ -399,6 +357,52 @@ router.patch('/:id/submit', async (req, res) => {
   }
 });
 
+router.patch('/:id/review', requireRole(['Admin']), async (req, res) => {
+  try {
+    const expense = await TravelExpense.findById(req.params.id);
+
+    if (!expense) {
+      return res.status(404).json({ error: 'Travel expense not found' });
+    }
+
+    if (expense.state !== 'Predano') {
+      return res.status(400).json({
+        error: 'Only submitted reports can be approved or rejected'
+      });
+    }
+
+    const { action, reviewComments } = req.body;
+    const notes = (reviewComments || '').trim();
+
+    if (action === 'approve') {
+      expense.state = 'Potvrđeno';
+      expense.reviewComments = notes || expense.reviewComments;
+    } else if (action === 'reject') {
+      if (!notes) {
+        return res.status(400).json({
+          error: 'Notes are required when rejecting a report'
+        });
+      }
+      expense.state = 'Odbijeno';
+      expense.reviewComments = notes;
+    } else {
+      return res.status(400).json({ error: 'Action must be approve or reject' });
+    }
+
+    expense.reviewedAt = new Date();
+    expense.reviewedBy = req.user._id;
+
+    const updatedExpense = await expense.save();
+    await updatedExpense.populate('userId', 'name surname');
+    await updatedExpense.populate('reviewedBy', 'name surname');
+
+    res.json(updatedExpense);
+  } catch (error) {
+    console.error('Review travel expense error:', error);
+    res.status(500).json({ error: 'Failed to review travel expense report' });
+  }
+});
+
 // DELETE - Remove expense item from a travel expense report
 router.delete('/:id/expenses/:expenseId', async (req, res) => {
   try {
@@ -409,17 +413,13 @@ router.delete('/:id/expenses/:expenseId', async (req, res) => {
     }
 
     // Check if user owns this expense
-    if (expense.userId.toString() !== req.user._id.toString()) {
+    if (!isOwner(expense, req.user) && !isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Role-based access control for deletion
-    // Only allow deletion if:
-    // 1. Report is in 'Skica' state, OR
-    // 2. User has 'Admin' role
-    if (['Predano'].includes(expense.state) && req.user.role !== 'Admin') {
-      return res.status(400).json({ 
-        error: 'Samo admin može izbrisati predana izvješća' 
+    if (!isEditableByOfficial(expense.state)) {
+      return res.status(400).json({
+        error: 'Cannot delete items from submitted or approved reports.'
       });
     }
 
