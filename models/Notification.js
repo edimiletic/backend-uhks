@@ -10,7 +10,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['GAME_ASSIGNMENT', 'ASSIGNMENT_RESPONSE', 'KONTROLA_RECEIVED'], // ← Add this
+    enum: ['GAME_ASSIGNMENT', 'ASSIGNMENT_RESPONSE', 'KONTROLA_RECEIVED', 'ASSIGNMENT_RELEASED'],
     required: true
   },
   message: {
@@ -116,6 +116,38 @@ notificationSchema.statics.createBulkKontrolaNotifications = async function(refe
   }
 };
 
+notificationSchema.statics.createAssignmentReleasedNotification = async function(userId, gameId, gameDetails) {
+  try {
+    const message = `Nominacija je povučena zbog više lige: ${gameDetails.homeTeam} vs ${gameDetails.awayTeam} (${gameDetails.competition}, ${gameDetails.date} ${gameDetails.time}). Dodijeljena je ${gameDetails.higherCompetition}: ${gameDetails.higherHomeTeam} vs ${gameDetails.higherAwayTeam}.`;
+    return this.create({
+      userId,
+      type: 'ASSIGNMENT_RELEASED',
+      message,
+      gameId,
+      isRead: false
+    });
+  } catch (error) {
+    console.error('Error creating assignment released notification:', error);
+    throw error;
+  }
+};
+
+notificationSchema.statics.createAssignmentReleasedCommissionerNotification = async function(userId, gameId, gameDetails) {
+  try {
+    const message = `Potrebna je nova nominacija (${gameDetails.role}) za ${gameDetails.homeTeam} vs ${gameDetails.awayTeam} (${gameDetails.competition}, ${gameDetails.date} ${gameDetails.time}). Službena osoba je prebačena na višu ligu.`;
+    return this.create({
+      userId,
+      type: 'ASSIGNMENT_RELEASED',
+      message,
+      gameId,
+      isRead: false
+    });
+  } catch (error) {
+    console.error('Error creating commissioner release notification:', error);
+    throw error;
+  }
+};
+
 // Static method to create game assignment notification
 notificationSchema.statics.createGameAssignmentNotification = async function(userId, gameId, gameDetails) {
   try {
@@ -195,7 +227,9 @@ notificationSchema.statics.createBulkAssignmentResponseNotifications = async fun
   try {
     // Get all admin users
     const User = mongoose.model('User');
-    const adminUsers = await User.find({ role: 'Admin' }, '_id').lean();
+    const adminUsers = await User.find({
+      $or: [{ role: 'Admin' }, { 'roles.name': 'Admin' }]
+    }, '_id').lean();
     
     if (adminUsers.length === 0) {
       console.warn('⚠️ No admin users found for assignment response notifications');
@@ -341,6 +375,10 @@ notificationSchema.pre('save', function(next) {
   // ← ADD THIS validation for kontrola notifications
   if (this.type === 'KONTROLA_RECEIVED' && (!this.gameId || !this.kontrolaId)) {
     return next(new Error('KONTROLA_RECEIVED notifications must have both gameId and kontrolaId'));
+  }
+
+  if (this.type === 'ASSIGNMENT_RELEASED' && !this.gameId) {
+    return next(new Error('ASSIGNMENT_RELEASED notifications must have a gameId'));
   }
   
   next();

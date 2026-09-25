@@ -4,6 +4,7 @@ const router = express.Router();
 const Absence = require('../models/Absence');
 const User = require('../models/User'); // Add User import
 const authenticateUser = require('../middleware/authMiddleware');
+const { canSeeAllGames, isAdminUser, getSupervisedAbsencePersonalCodes, getRoleNames } = require('../config/roles');
 
 // Apply authentication middleware to all routes
 router.use(authenticateUser);
@@ -89,8 +90,8 @@ router.get('/my', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     // Check if user has admin role
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Access denied. Admin role required.' });
+    if (!canSeeAllGames(req.user)) {
+      return res.status(403).json({ error: 'Access denied.' });
     }
 
     const { page = 1, limit = 10, userPersonalCode, startDate, endDate } = req.query;
@@ -101,19 +102,30 @@ router.get('/', async (req, res) => {
     if (startDate) filter.startDate = { $gte: new Date(startDate) };
     if (endDate) filter.endDate = { $lte: new Date(endDate) };
 
+    const users = await User.find({}, { personalCode: 1, name: 1, surname: 1, role: 1, roles: 1, najvisaLiga: 1 });
+
+    if (!isAdminUser(req.user)) {
+      const allowedCodes = getSupervisedAbsencePersonalCodes(req.user, users);
+      if (filter.userPersonalCode && !allowedCodes.includes(filter.userPersonalCode)) {
+        return res.json({ absences: [], totalPages: 0, currentPage: page, total: 0 });
+      }
+      if (!filter.userPersonalCode) {
+        filter.userPersonalCode = { $in: allowedCodes };
+      }
+    }
+
     // Get absences with user information
     const absences = await Absence.find(filter)
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
-    // Get all users to map personal codes to names
-    const users = await User.find({}, { personalCode: 1, name: 1, surname: 1 });
     const userMap = {};
     users.forEach(user => {
       userMap[user.personalCode] = {
         name: user.name,
-        surname: user.surname
+        surname: user.surname,
+        roles: getRoleNames(user)
       };
     });
 
@@ -122,7 +134,8 @@ router.get('/', async (req, res) => {
       const user = userMap[absence.userPersonalCode];
       return {
         ...absence.toObject(),
-        userName: user ? `${user.name} ${user.surname}` : 'Nepoznato ime'
+        userName: user ? `${user.name} ${user.surname}` : 'Nepoznato ime',
+        userRole: user?.roles?.length ? user.roles.join(', ') : ''
       };
     });
 
@@ -152,7 +165,7 @@ router.get('/:id', async (req, res) => {
     }
 
     // Check if user owns this absence or is admin
-    if (absence.userPersonalCode !== req.user.personalCode && req.user.role !== 'Admin') {
+    if (absence.userPersonalCode !== req.user.personalCode && !isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -176,7 +189,7 @@ router.put('/:id', async (req, res) => {
     }
 
     // Check if user owns this absence or is admin
-    if (absence.userPersonalCode !== req.user.personalCode && req.user.role !== 'Admin') {
+    if (absence.userPersonalCode !== req.user.personalCode && !isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -241,7 +254,7 @@ router.delete('/:id', async (req, res) => {
     }
 
     // Check if user owns this absence or is admin
-    if (absence.userPersonalCode !== req.user.personalCode && req.user.role !== 'Admin') {
+    if (absence.userPersonalCode !== req.user.personalCode && !isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied' });
     }
 

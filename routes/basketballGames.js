@@ -5,6 +5,22 @@ const BasketballGame = require('../models/BasketballGames');
 const User = require('../models/User');
 const authenticateUser = require('../middleware/authMiddleware');
 const Notification = require('../models/Notification');
+const {
+  canManageCalendar,
+  canSeeAllGames,
+  canAssignGameRole,
+  isTopProfessionalCompetition,
+  isWithinNominationCap,
+  getGamesVisibilityFilter,
+  canAccessGame,
+  userHasRole,
+  isAdminUser,
+  adminUserQuery,
+  timesOverlap,
+  isBlockingScheduleConflict,
+  userHasRoleForCompetition
+} = require('../config/roles');
+const { assertCompetitionHasCommissioners } = require('../utils/commissionerCoverage');
 
 // Apply authentication middleware to all routes
 router.use(authenticateUser);
@@ -12,12 +28,17 @@ router.use(authenticateUser);
 // CREATE - Create a new basketball game (Admin only)
 router.post('/', async (req, res) => {
   try {
-    // Check if user is admin
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Access denied. Admin role required.' });
+    const { homeTeam, awayTeam, date, time, venue, competition, notes } = req.body;
+
+    if (!canManageCalendar(req.user, competition)) {
+      return res.status(403).json({ error: 'Access denied. Calendar manager role required.' });
     }
 
-    const { homeTeam, awayTeam, date, time, venue, competition, notes } = req.body;
+    try {
+      await assertCompetitionHasCommissioners(competition);
+    } catch (coverageError) {
+      return res.status(coverageError.statusCode || 400).json({ error: coverageError.message });
+    }
 
     // Validate required fields
     if (!homeTeam || !awayTeam || !date || !time || !venue || !competition) {
@@ -99,6 +120,27 @@ router.get('/referee/:refereeId/date/:date', async (req, res) => {
   }
 });
 
+// GET - All games on a date (for nomination conflict checks)
+router.get('/schedule/:date', async (req, res) => {
+  try {
+    const { date } = req.params;
+    const queryDate = new Date(date);
+    const startOfDay = new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate());
+    const endOfDay = new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate() + 1);
+
+    const games = await BasketballGame.find({
+      date: { $gte: startOfDay, $lt: endOfDay }
+    })
+      .select('time competition refereeAssignments.userId refereeAssignments.assignmentStatus')
+      .lean();
+
+    res.json(games);
+  } catch (error) {
+    console.error('Backend error - Get games on date:', error);
+    res.status(500).json({ error: 'Failed to fetch games for date' });
+  }
+});
+
 // READ - Get all basketball games with optional filters
 router.get('/', async (req, res) => {
   try {
@@ -119,10 +161,7 @@ router.get('/', async (req, res) => {
     if (homeTeam) filter.homeTeam = new RegExp(homeTeam, 'i');
     if (awayTeam) filter.awayTeam = new RegExp(awayTeam, 'i');
 
-    // For non-admin users, also show games where they are assigned
-    if (req.user.role !== 'Admin') {
-      filter['refereeAssignments.userId'] = req.user._id;
-    }
+    Object.assign(filter, getGamesVisibilityFilter(req.user));
 
     const skip = (page - 1) * limit;
     const totalGames = await BasketballGame.countDocuments(filter);
@@ -180,15 +219,8 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Basketball game not found' });
     }
 
-    // Check if user has access to this game
-    if (req.user.role !== 'Admin') {
-      const isAssigned = game.refereeAssignments.some(
-        assignment => assignment.userId._id.toString() === req.user._id.toString()
-      );
-      
-      if (!isAssigned) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
+    if (!canAccessGame(req.user, game)) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
     res.json(game);
@@ -201,18 +233,25 @@ router.get('/:id', async (req, res) => {
 // UPDATE - Update basketball game (Admin only)
 router.put('/:id', async (req, res) => {
   try {
-    // Check if user is admin
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Access denied. Admin role required.' });
-    }
-
     const game = await BasketballGame.findById(req.params.id);
 
     if (!game) {
       return res.status(404).json({ error: 'Basketball game not found' });
     }
 
+    if (!canManageCalendar(req.user, game.competition)) {
+      return res.status(403).json({ error: 'Access denied. Calendar manager role required.' });
+    }
+
     const { homeTeam, awayTeam, date, time, venue, competition, status, notes, score } = req.body;
+
+    if (competition && competition !== game.competition) {
+      try {
+        await assertCompetitionHasCommissioners(competition);
+      } catch (coverageError) {
+        return res.status(coverageError.statusCode || 400).json({ error: coverageError.message });
+      }
+    }
 
     // Update fields
     if (homeTeam) game.homeTeam = homeTeam;
@@ -242,15 +281,14 @@ router.put('/:id', async (req, res) => {
 // DELETE - Delete basketball game (Admin only)
 router.delete('/:id', async (req, res) => {
   try {
-    // Check if user is admin
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Access denied. Admin role required.' });
-    }
-
     const game = await BasketballGame.findById(req.params.id);
 
     if (!game) {
       return res.status(404).json({ error: 'Basketball game not found' });
+    }
+
+    if (!canManageCalendar(req.user, game.competition)) {
+      return res.status(403).json({ error: 'Access denied. Calendar manager role required.' });
     }
 
     await BasketballGame.deleteOne({ _id: req.params.id });
@@ -266,29 +304,38 @@ router.delete('/:id', async (req, res) => {
 router.post('/:id/assign-referee', async (req, res) => {
   try {
     // Check if user is admin
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Access denied. Admin role required.' });
-    }
-
     const { userId, role, position } = req.body;
-
-    if (!userId || !role) {
-      return res.status(400).json({ error: 'Missing required fields: userId, role' });
-    }
 
     const game = await BasketballGame.findById(req.params.id);
     if (!game) {
       return res.status(404).json({ error: 'Basketball game not found' });
     }
 
-    // Validate that user exists and has the correct role
+    if (!canAssignGameRole(req.user, role, game.competition)) {
+      return res.status(403).json({ error: 'Access denied for this nomination role.' });
+    }
+
+    if (!userId || !role) {
+      return res.status(400).json({ error: 'Missing required fields: userId, role' });
+    }
+
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    if (user.role !== role) {
+    if (!userHasRole(user, role)) {
       return res.status(400).json({ error: 'User role does not match assignment role' });
+    }
+
+    if (role === 'Kontrolor' && !isTopProfessionalCompetition(game.competition)) {
+      return res.status(400).json({ error: 'Kontrolor se dodjeljuje samo na vrhunskim natjecanjima.' });
+    }
+
+    if (role !== 'Pomoćni Sudac' && !isWithinNominationCap(user, game.competition, role)) {
+      return res.status(400).json({
+        error: 'Ova osoba ne može biti nominirana iznad svoje najviše lige.'
+      });
     }
 
     // Check if user is already assigned to this game
@@ -296,12 +343,104 @@ router.post('/:id/assign-referee', async (req, res) => {
       return res.status(400).json({ error: 'User is already assigned to this game' });
     }
 
+    const queryDate = new Date(game.date);
+    const startOfDay = new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate());
+    const endOfDay = new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate() + 1);
+
+    const sameDayGames = await BasketballGame.find({
+      _id: { $ne: game._id },
+      date: { $gte: startOfDay, $lt: endOfDay },
+      refereeAssignments: {
+        $elemMatch: {
+          userId,
+          assignmentStatus: { $in: ['Accepted', 'Pending'] }
+        }
+      }
+    });
+
+    const overlappingGames = sameDayGames.filter((otherGame) => timesOverlap(otherGame.time, game.time));
+    const blockingGame = overlappingGames.find((otherGame) =>
+      isBlockingScheduleConflict(otherGame.competition, game.competition)
+    );
+
+    if (blockingGame) {
+      return res.status(400).json({
+        error: `Sudac je već nominiran na višem ili istom rangu natjecanja: ${blockingGame.homeTeam} vs ${blockingGame.awayTeam} (${blockingGame.competition}).`
+      });
+    }
+
+    const releasedNominations = [];
+    for (const lowerGame of overlappingGames) {
+      const assignmentIndex = lowerGame.refereeAssignments.findIndex((assignment) =>
+        String(assignment.userId) === String(userId) &&
+        assignment.assignmentStatus !== 'Rejected'
+      );
+      if (assignmentIndex === -1) {
+        continue;
+      }
+
+      const released = lowerGame.refereeAssignments[assignmentIndex];
+      lowerGame.refereeAssignments.splice(assignmentIndex, 1);
+      await lowerGame.save();
+
+      releasedNominations.push({
+        gameId: lowerGame._id,
+        homeTeam: lowerGame.homeTeam,
+        awayTeam: lowerGame.awayTeam,
+        competition: lowerGame.competition,
+        time: lowerGame.time,
+        role: released.role,
+        position: released.position
+      });
+
+      try {
+        await Notification.createAssignmentReleasedNotification(userId, lowerGame._id, {
+          homeTeam: lowerGame.homeTeam,
+          awayTeam: lowerGame.awayTeam,
+          date: lowerGame.date.toLocaleDateString('hr-HR'),
+          time: lowerGame.time,
+          competition: lowerGame.competition,
+          higherHomeTeam: game.homeTeam,
+          higherAwayTeam: game.awayTeam,
+          higherCompetition: game.competition
+        });
+
+        const commissionerRole = released.role === 'Pomoćni Sudac'
+          ? 'Povjerenik za pomoćne suce'
+          : 'Povjerenik za službene osobe';
+        const commissioners = await User.find({
+          $or: [
+            { role: commissionerRole },
+            { 'roles.name': commissionerRole },
+            { role: 'Admin' },
+            { 'roles.name': 'Admin' }
+          ]
+        }).select('_id role roles');
+
+        for (const commissioner of commissioners) {
+          if (!userHasRoleForCompetition(commissioner, commissionerRole, lowerGame.competition) && !isAdminUser(commissioner)) {
+            continue;
+          }
+          await Notification.createAssignmentReleasedCommissionerNotification(commissioner._id, lowerGame._id, {
+            homeTeam: lowerGame.homeTeam,
+            awayTeam: lowerGame.awayTeam,
+            date: lowerGame.date.toLocaleDateString('hr-HR'),
+            time: lowerGame.time,
+            competition: lowerGame.competition,
+            role: released.role
+          });
+        }
+      } catch (notificationError) {
+        console.error('Error creating release notifications:', notificationError);
+      }
+    }
+
     // Get next available position if not specified
     let assignmentPosition = position;
     if (!assignmentPosition) {
       assignmentPosition = game.getNextAvailablePosition(role);
       if (!assignmentPosition) {
-        const maxPositions = { 'Sudac': 3, 'Delegat': 1, 'Pomoćni Sudac': 3 };
+        const maxPositions = { 'Sudac': 3, 'Delegat': 1, 'Pomoćni Sudac': 3, 'Kontrolor': 1 };
         return res.status(400).json({ 
           error: `No available positions for role ${role}. Maximum ${maxPositions[role]} allowed.` 
         });
@@ -337,7 +476,9 @@ router.post('/:id/assign-referee', async (req, res) => {
       // Don't fail the assignment if notification fails
     }
 
-    res.json(updatedGame);
+    const payload = updatedGame.toObject();
+    payload.releasedNominations = releasedNominations;
+    res.json(payload);
   } catch (error) {
     console.error('Assign referee error:', error);
     if (error.message.includes('Maximum')) {
@@ -351,19 +492,15 @@ router.post('/:id/assign-referee', async (req, res) => {
 router.get('/:id/available-positions/:role', async (req, res) => {
   try {
     // Check if user is admin
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Access denied. Admin role required.' });
-    }
-
     const { role } = req.params;
-    
-    if (!['Sudac', 'Delegat', 'Pomoćni Sudac'].includes(role)) {
-      return res.status(400).json({ error: 'Invalid role' });
-    }
 
     const game = await BasketballGame.findById(req.params.id);
     if (!game) {
       return res.status(404).json({ error: 'Basketball game not found' });
+    }
+
+    if (!canAssignGameRole(req.user, role, game.competition)) {
+      return res.status(403).json({ error: 'Access denied for this nomination role.' });
     }
 
     const availablePositions = game.getAvailablePositions(role);
@@ -391,14 +528,8 @@ router.get('/:id/referee-summary', async (req, res) => {
     }
 
     // Check if user has access to this game
-    if (req.user.role !== 'Admin') {
-      const isAssigned = game.refereeAssignments.some(
-        assignment => assignment.userId._id.toString() === req.user._id.toString()
-      );
-      
-      if (!isAssigned) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
+    if (!canAccessGame(req.user, game)) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
     const summary = game.getRefereeAssignmentSummary();
@@ -501,7 +632,7 @@ router.patch('/:id/respond-assignment', async (req, res) => {
     // 🎯 CREATE NOTIFICATION FOR ADMIN USERS
     try {
       // Get all admin users
-      const adminUsers = await User.find({ role: 'Admin' }, '_id');
+      const adminUsers = await User.find(adminUserQuery(), '_id');
       
       const refereeDetails = {
         name: req.user.name,
@@ -563,11 +694,6 @@ router.patch('/:id/respond-assignment', async (req, res) => {
 // DELETE - Remove referee assignment (Admin only)
 router.delete('/:id/remove-referee/:assignmentId', async (req, res) => {
   try {
-    // Check if user is admin
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Access denied. Admin role required.' });
-    }
-
     const game = await BasketballGame.findById(req.params.id);
     if (!game) {
       return res.status(404).json({ error: 'Basketball game not found' });
@@ -579,6 +705,11 @@ router.delete('/:id/remove-referee/:assignmentId', async (req, res) => {
 
     if (assignmentIndex === -1) {
       return res.status(404).json({ error: 'Assignment not found' });
+    }
+
+    const assignmentRole = game.refereeAssignments[assignmentIndex].role;
+    if (!canAssignGameRole(req.user, assignmentRole, game.competition)) {
+      return res.status(403).json({ error: 'Access denied for this nomination role.' });
     }
 
     game.refereeAssignments.splice(assignmentIndex, 1);
@@ -596,7 +727,7 @@ router.delete('/:id/remove-referee/:assignmentId', async (req, res) => {
 router.get('/:id/rejection-history', async (req, res) => {
   try {
     // Check if user is admin
-    if (req.user.role !== 'Admin') {
+    if (!isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 

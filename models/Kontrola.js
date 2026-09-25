@@ -104,9 +104,17 @@ kontrolaSchema.index({ createdBy: 1, createdAt: -1 });
 // Static method to create kontrola with notifications
 kontrolaSchema.statics.createWithNotifications = async function(kontrolaData, createdByUserId) {
   try {
-    // Create the kontrola
+    const refereeGrades = (kontrolaData.refereeGrades || []).filter(
+      grade => grade.refereeRole === 'Sudac'
+    );
+
+    if (refereeGrades.length === 0) {
+      throw new Error('Kontrola mora sadržavati ocjene suca.');
+    }
+
     const kontrola = new this({
       ...kontrolaData,
+      refereeGrades,
       createdBy: createdByUserId
     });
     
@@ -123,7 +131,7 @@ kontrolaSchema.statics.createWithNotifications = async function(kontrolaData, cr
     // Create notifications for all referees in the kontrola
     const Notification = mongoose.model('Notification');
     await Notification.createBulkKontrolaNotifications(
-      kontrolaData.refereeGrades,
+      refereeGrades,
       kontrolaData.gameId,
       kontrola._id,
       {
@@ -224,17 +232,18 @@ kontrolaSchema.statics.existsForGame = async function(gameId) {
 // Instance method to update with notifications for new referees
 kontrolaSchema.methods.updateWithNotifications = async function(updateData, updatedByUserId) {
   try {
-    // Get current referee IDs
+    const refereeGrades = (updateData.refereeGrades || []).filter(
+      grade => grade.refereeRole === 'Sudac'
+    );
+
     const currentRefereeIds = new Set(this.refereeGrades.map(grade => grade.refereeId.toString()));
     
-    // Get new referee IDs
-    const newRefereeIds = updateData.refereeGrades
+    const newRefereeIds = refereeGrades
       .map(grade => grade.refereeId)
       .filter(id => !currentRefereeIds.has(id));
 
-    // Update the kontrola
     this.tezinaUtakmice = updateData.tezinaUtakmice;
-    this.refereeGrades = updateData.refereeGrades;
+    this.refereeGrades = refereeGrades;
     this.updatedBy = updatedByUserId;
     
     await this.save();
@@ -245,7 +254,7 @@ kontrolaSchema.methods.updateWithNotifications = async function(updateData, upda
       const game = await BasketballGame.findById(this.gameId);
       
       if (game) {
-        const newRefereeGrades = updateData.refereeGrades.filter(
+        const newRefereeGrades = refereeGrades.filter(
           grade => newRefereeIds.includes(grade.refereeId)
         );
 

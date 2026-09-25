@@ -1,5 +1,6 @@
 // backend/models/basketballGame.js
 const mongoose = require('mongoose');
+const { withDisplayId } = require('../utils/displayId');
 
 const basketballGameSchema = new mongoose.Schema({
   // Basic game information
@@ -72,7 +73,7 @@ const basketballGameSchema = new mongoose.Schema({
     },
     role: {
       type: String,
-      enum: ['Sudac', 'Delegat', 'Pomoćni Sudac'],
+      enum: ['Sudac', 'Delegat', 'Pomoćni Sudac', 'Kontrolor'],
       required: true
     },
     position: {
@@ -133,6 +134,8 @@ const basketballGameSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
+withDisplayId(basketballGameSchema, 'basketballGame');
+
 // Virtual for formatted date
 basketballGameSchema.virtual('formattedDate').get(function() {
   if (!this.date) return '';
@@ -158,7 +161,8 @@ basketballGameSchema.virtual('refereeCount').get(function() {
   const counts = {
     Sudac: 0,
     Delegat: 0,
-    'Pomoćni Sudac': 0
+    'Pomoćni Sudac': 0,
+    Kontrolor: 0
   };
   
   // Safety check for undefined/null refereeAssignments
@@ -245,6 +249,10 @@ basketballGameSchema.pre('save', function(next) {
     next(new Error('Maximum 3 Pomoćni Sudac allowed per game'));
     return;
   }
+  if (roleCounts['Kontrolor'] > 1) {
+    next(new Error('Maximum 1 Kontrolor allowed per game'));
+    return;
+  }
   
   next();
 });
@@ -276,7 +284,8 @@ basketballGameSchema.methods.getAvailablePositions = function(role) {
   const maxPositions = {
     'Sudac': 3,
     'Delegat': 1,
-    'Pomoćni Sudac': 3
+    'Pomoćni Sudac': 3,
+    'Kontrolor': 1
   };
   
   const occupiedPositions = [];
@@ -324,7 +333,8 @@ basketballGameSchema.methods.getRefereeAssignmentSummary = function() {
   const summary = {
     Sudac: { assigned: 0, accepted: 0, positions: [] },
     Delegat: { assigned: 0, accepted: 0, positions: [] },
-    'Pomoćni Sudac': { assigned: 0, accepted: 0, positions: [] }
+    'Pomoćni Sudac': { assigned: 0, accepted: 0, positions: [] },
+    Kontrolor: { assigned: 0, accepted: 0, positions: [] }
   };
   
   if (this.refereeAssignments && Array.isArray(this.refereeAssignments)) {

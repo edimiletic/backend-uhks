@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const rateLimit = require('express-rate-limit');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret'; // Use environment variable
+const JWT_SECRET = require('../config/jwt');
 
 // Rate limiting for login attempts
 const loginLimiter = rateLimit({
@@ -44,72 +44,23 @@ router.post('/login', loginLimiter, async (req, res) => {
         role: user.role 
       }, 
       JWT_SECRET, 
-      { expiresIn: '24h' } // Extended to 24 hours
+      { expiresIn: '24h' }
     );
 
-    res.json({ 
+    const publicUser = user.toObject();
+    delete publicUser.password;
+
+    res.json({
       token,
       user: {
-        id: user._id,
-        username: user.username,
-        name: user.name,
-        surname: user.surname,
-        role: user.role
+        ...publicUser,
+        _id: user._id,
+        id: user._id
       }
     });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Server error' });
-  }
-});
-router.post('/register', async (req, res) => {
-  const {
-    username,
-    name,
-    surname,
-    email,
-    password,
-    birthdate,
-    personalCode,
-    address,
-    role
-  } = req.body;
-
-  // Basic validation
-  if (!username || !name || !surname || !email || !password || !birthdate || !personalCode || !address) {
-    return res.status(400).json({ error: 'All fields are required' });
-  }
-
-  try {
-    // Check if user or email or personalCode already exists
-    const existingUser = await User.findOne({ $or: [{ username }, { email }, { personalCode }] });
-    if (existingUser) {
-      return res.status(400).json({ error: 'User with this username, email or personal code already exists' });
-    }
-
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create and save the user
-    const newUser = new User({
-      username,
-      name,
-      surname,
-      email,
-      password: hashedPassword,
-      birthdate,
-      personalCode,
-      address,
-      role
-    });
-
-    await newUser.save();
-
-    res.status(201).json({ message: 'User registered successfully' });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error while registering user' });
   }
 });
 

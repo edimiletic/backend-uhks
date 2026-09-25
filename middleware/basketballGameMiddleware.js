@@ -1,6 +1,7 @@
 // backend/middleware/basketballGameMiddleware.js
 const BasketballGame = require('../models/basketballGame');
 const User = require('../models/User');
+const { isAdminUser, userHasRole, canAccessGame } = require('../config/roles');
 
 // Middleware to validate game creation/update data
 const validateGameData = (req, res, next) => {
@@ -71,7 +72,7 @@ const validateGameData = (req, res, next) => {
 
 // Middleware to check if user is admin
 const requireAdmin = (req, res, next) => {
-  if (req.user.role !== 'Admin') {
+  if (!isAdminUser(req.user)) {
     return res.status(403).json({ error: 'Access denied. Admin role required.' });
   }
   next();
@@ -87,7 +88,7 @@ const requireAssignedReferee = async (req, res, next) => {
     }
 
     // Admin can access any game
-    if (req.user.role === 'Admin') {
+    if (isAdminUser(req.user) || canAccessGame(req.user, game)) {
       req.game = game;
       return next();
     }
@@ -119,14 +120,14 @@ const validateRefereeAssignment = async (req, res, next) => {
     }
 
     // Validate role
-    const validRoles = ['Sudac', 'Delegat', 'Pomoćni Sudac'];
+    const validRoles = ['Sudac', 'Delegat', 'Pomoćni Sudac', 'Kontrolor'];
     if (!validRoles.includes(role)) {
       return res.status(400).json({ error: 'Invalid role' });
     }
 
     // Validate position if provided
     if (position !== undefined) {
-      const maxPositions = { 'Sudac': 3, 'Delegat': 1, 'Pomoćni Sudac': 3 };
+      const maxPositions = { 'Sudac': 3, 'Delegat': 1, 'Pomoćni Sudac': 3, 'Kontrolor': 1 };
       if (position < 1 || position > maxPositions[role]) {
         return res.status(400).json({ 
           error: `Invalid position. ${role} positions must be between 1 and ${maxPositions[role]}` 
@@ -141,7 +142,7 @@ const validateRefereeAssignment = async (req, res, next) => {
     }
 
     // Validate that user has the correct role
-    if (user.role !== role) {
+    if (!userHasRole(user, role)) {
       return res.status(400).json({ error: 'User role does not match assignment role' });
     }
 
@@ -204,7 +205,8 @@ const getRefereeAssignmentLimits = () => {
   return {
     'Sudac': { min: 2, max: 3 },
     'Delegat': { min: 0, max: 1 },
-    'Pomoćni Sudac': { min: 2, max: 3 }
+    'Pomoćni Sudac': { min: 2, max: 3 },
+    'Kontrolor': { min: 0, max: 1 }
   };
 };
 

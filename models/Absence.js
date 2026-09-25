@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { withDisplayId } = require('../utils/displayId');
 
 const absenceSchema = new mongoose.Schema({
   startDate: {
@@ -30,6 +31,8 @@ const absenceSchema = new mongoose.Schema({
 });
 
 // Index for better query performance
+withDisplayId(absenceSchema, 'absence');
+
 absenceSchema.index({ userPersonalCode: 1 });
 absenceSchema.index({ startDate: 1, endDate: 1 });
 

@@ -5,10 +5,10 @@ const TravelExpense = require('../models/TravelExpense');
 const User = require('../models/User');
 const authenticateUser = require('../middleware/authMiddleware');
 const {requireRole} = require('../middleware/roleMiddleware');
+const { isAdminUser } = require('../config/roles');
 
 router.use(authenticateUser);
 
-const isAdminUser = (user) => user?.role === 'Admin';
 const isOwner = (expense, user) => expense.userId.toString() === user._id.toString();
 const isEditableByOfficial = (state) => state === 'Skica' || state === 'Odbijeno';
 

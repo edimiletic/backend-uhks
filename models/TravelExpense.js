@@ -1,5 +1,6 @@
 // backend/models/travelExpense.js
 const mongoose = require('mongoose');
+const { withDisplayId } = require('../utils/displayId');
 
 const travelExpenseSchema = new mongoose.Schema({
   type: {
@@ -8,7 +9,8 @@ const travelExpenseSchema = new mongoose.Schema({
     enum: [
       'Troškovno izvješće suca',
       'Troškovno izvješće delegata',
-      'Troškovno izvješće pomoćnog suca'
+      'Troškovno izvješće pomoćnog suca',
+      'Troškovno izvješće kontrolora'
     ],
     trim: true
   },
@@ -151,6 +153,8 @@ const travelExpenseSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+withDisplayId(travelExpenseSchema, 'travelExpense');
 
 travelExpenseSchema.set('toJSON', {
   virtuals: true,

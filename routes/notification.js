@@ -228,7 +228,9 @@ router.createAssignmentResponseNotification = async (gameId, refereeId, response
     }
 
     // Find all admin users to notify
-    const adminUsers = await User.find({ role: 'Admin' });
+    const adminUsers = await User.find({
+      $or: [{ role: 'Admin' }, { 'roles.name': 'Admin' }]
+    });
     
     const gameDetails = {
       _id: game._id,

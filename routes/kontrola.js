@@ -3,11 +3,37 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose'); // Make sure this line exists
 const Kontrola = require('../models/Kontrola');
+const BasketballGame = require('../models/BasketballGames');
 const authenticateUser = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/roleMiddleware');
+const { canWriteKontrola } = require('../config/roles');
 
-// Create kontrola (Admin/Delegat only)
-router.post('/', authenticateUser, requireRole(['Admin', 'Delegat']), async (req, res) => {
+const requireKontrolaWriter = async (req, res, next) => {
+  try {
+    const gameId = req.body.gameId || req.params.gameId;
+    if (!gameId) {
+      return res.status(400).json({ error: 'gameId is required' });
+    }
+
+    const game = await BasketballGame.findById(gameId);
+    if (!game) {
+      return res.status(404).json({ error: 'Utakmica nije pronađena' });
+    }
+
+    if (!canWriteKontrola(req.user, game)) {
+      return res.status(403).json({
+        error: 'Kontrolu piše kontrolor. Ako kontrolor nije dodijeljen, piše je delegat utakmice.'
+      });
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Create kontrola
+router.post('/', authenticateUser, requireKontrolaWriter, async (req, res) => {
   try {
     console.log('Creating kontrola for user:', req.user.name, 'Role:', req.user.role);
     console.log('Kontrola data received:', req.body);
@@ -97,7 +123,7 @@ router.get('/exists/:gameId', authenticateUser, async (req, res) => {
 
 
 // Get kontrola for editing (Admin/Delegat only)
-router.get('/edit/:gameId', authenticateUser, requireRole(['Admin', 'Delegat']), async (req, res) => {
+router.get('/edit/:gameId', authenticateUser, requireKontrolaWriter, async (req, res) => {
   try {
     const { gameId } = req.params;
     
@@ -139,7 +165,7 @@ router.get('/edit/:gameId', authenticateUser, requireRole(['Admin', 'Delegat']),
 // Update kontrola (Admin/Delegat only)
 router.put('/:gameId', 
   authenticateUser, 
-  requireRole(['Admin', 'Delegat']), 
+  requireKontrolaWriter, 
   async (req, res) => {
     try {
       const { gameId } = req.params;
@@ -185,7 +211,7 @@ router.delete('/:gameId',
 // Get all kontrole for a specific game (Admin/Delegat only - to see all referee grades)
 router.get('/game/:gameId/all', 
   authenticateUser, 
-  requireRole(['Admin', 'Delegat']), 
+  requireKontrolaWriter, 
   async (req, res) => {
     try {
       const { gameId } = req.params;

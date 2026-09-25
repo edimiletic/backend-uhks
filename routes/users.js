@@ -2,6 +2,22 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const {
+  canSeeAllGames,
+  isAdminUser,
+  gameAssignmentRoleQuery,
+  normalizeRoleAssignments,
+  pickPrimaryRole,
+  REFEREE_RANKS,
+  ALL_COMPETITIONS,
+  ELIGIBLE_OFFICIAL_ROLES,
+  getRoleNames,
+  canViewEligibleOfficials,
+  getEligibilityCompetitions,
+  isEligibleForCompetition,
+  getCompetitionRank
+} = require('../config/roles');
+const { assertCoverageAfterChange } = require('../utils/commissionerCoverage');
 const authenticateUser = require('../middleware/authMiddleware');
 
 // Apply authentication middleware to all routes
@@ -11,14 +27,12 @@ router.use(authenticateUser);
 router.get('/referees', async (req, res) => {
   try {
     // Check if user is admin
-    if (req.user.role !== 'Admin') {
-      return res.status(403).json({ error: 'Access denied. Admin role required.' });
+    if (!canSeeAllGames(req.user)) {
+      return res.status(403).json({ error: 'Access denied.' });
     }
 
-    const referees = await User.find({
-      role: { $in: ['Sudac', 'Delegat', 'Pomoćni Sudac'] }
-    })
-    .select('_id name surname email role personalCode') // Include personalCode for absence checking
+    const referees = await User.find(gameAssignmentRoleQuery())
+    .select('_id name surname email role roles personalCode rang najvisaLiga')
     .sort({ role: 1, surname: 1, name: 1 });
 
     res.json(referees);
@@ -28,11 +42,52 @@ router.get('/referees', async (req, res) => {
   }
 });
 
+router.get('/eligible-officials', async (req, res) => {
+  try {
+    if (!canViewEligibleOfficials(req.user)) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    const competitions = getEligibilityCompetitions(req.user)
+      .slice()
+      .sort((a, b) => getCompetitionRank(b) - getCompetitionRank(a) || a.localeCompare(b));
+
+    const officials = await User.find(gameAssignmentRoleQuery())
+      .select('_id name surname email role roles rang najvisaLiga')
+      .sort({ surname: 1, name: 1 });
+
+    const placed = new Set();
+    const groups = competitions.map((competition) => {
+      const rows = officials.filter((official) => {
+        const id = String(official._id);
+        if (placed.has(id) || !isEligibleForCompetition(official, competition)) return false;
+        placed.add(id);
+        return true;
+      }).map((official) => ({
+        _id: official._id,
+        name: official.name,
+        surname: official.surname,
+        email: official.email,
+        roles: getRoleNames(official).filter((role) => ELIGIBLE_OFFICIAL_ROLES.includes(role)),
+        rang: official.rang || '',
+        najvisaLiga: official.najvisaLiga || ''
+      }));
+
+      return { competition, officials: rows };
+    });
+
+    res.json({ competitions: groups });
+  } catch (error) {
+    console.error('Get eligible officials error:', error);
+    res.status(500).json({ error: 'Failed to fetch eligible officials' });
+  }
+});
+
 // GET - Get all users (Admin only)
 router.get('/', async (req, res) => {
   try {
     // Check if user is admin
-    if (req.user.role !== 'Admin') {
+    if (!isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -51,7 +106,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     // Check if user is admin
-    if (req.user.role !== 'Admin') {
+    if (!isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -72,7 +127,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     // Check if user is admin
-    if (req.user.role !== 'Admin') {
+    if (!isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -85,12 +140,30 @@ router.post('/', async (req, res) => {
       birthdate,
       personalCode,
       address,
-      role
+      role,
+      roles,
+      rang,
+      najvisaLiga
     } = req.body;
 
-    // Basic validation
-    if (!username || !name || !surname || !email || !password || !birthdate || !personalCode || !address || !role) {
+    const assignments = normalizeRoleAssignments({ role, roles });
+
+    const sanitizedRang = String(rang || '').trim();
+    const usesNajvisaLiga = assignments.some((assignment) => ELIGIBLE_OFFICIAL_ROLES.includes(assignment.name));
+    const sanitizedNajvisaLiga = usesNajvisaLiga ? String(najvisaLiga || '').trim() : '';
+    if (sanitizedRang && !REFEREE_RANKS.includes(sanitizedRang)) {
+      return res.status(400).json({ error: 'Rang mora biti Državni sudac, Županijski sudac ili prazan.' });
+    }
+    if (sanitizedNajvisaLiga && !ALL_COMPETITIONS.includes(sanitizedNajvisaLiga)) {
+      return res.status(400).json({ error: 'Najviša liga nije valjana.' });
+    }
+
+    if (!username || !name || !surname || !email || !password || !birthdate || !personalCode || !address) {
       return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    if (!assignments.length) {
+      return res.status(400).json({ error: 'At least one valid role is required' });
     }
 
     // Check if user already exists
@@ -118,7 +191,10 @@ router.post('/', async (req, res) => {
       birthdate,
       personalCode,
       address,
-      role
+      role: pickPrimaryRole(assignments),
+      roles: assignments,
+      rang: sanitizedRang,
+      najvisaLiga: sanitizedNajvisaLiga
     });
 
     await newUser.save();
@@ -138,7 +214,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     // Check if user is admin
-    if (req.user.role !== 'Admin') {
+    if (!isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -157,7 +233,10 @@ router.put('/:id', async (req, res) => {
       birthdate,
       personalCode,
       address,
-      role
+      role,
+      roles,
+      rang,
+      najvisaLiga
     } = req.body;
 
     // Check for duplicate username, email, or personalCode (excluding current user)
@@ -180,6 +259,20 @@ router.put('/:id', async (req, res) => {
     }
 
     // Update fields
+    if (rang !== undefined) {
+      const sanitizedRang = String(rang || '').trim();
+      if (sanitizedRang && !REFEREE_RANKS.includes(sanitizedRang)) {
+        return res.status(400).json({ error: 'Rang mora biti Državni sudac, Županijski sudac ili prazan.' });
+      }
+      user.rang = sanitizedRang;
+    }
+    if (najvisaLiga !== undefined) {
+      const sanitizedNajvisaLiga = String(najvisaLiga || '').trim();
+      if (sanitizedNajvisaLiga && !ALL_COMPETITIONS.includes(sanitizedNajvisaLiga)) {
+        return res.status(400).json({ error: 'Najviša liga nije valjana.' });
+      }
+      user.najvisaLiga = sanitizedNajvisaLiga;
+    }
     if (username) user.username = username;
     if (name) user.name = name;
     if (surname) user.surname = surname;
@@ -187,12 +280,32 @@ router.put('/:id', async (req, res) => {
     if (birthdate) user.birthdate = birthdate;
     if (personalCode) user.personalCode = personalCode;
     if (address) user.address = address;
-    if (role) user.role = role;
+    if (roles || role) {
+      const assignments = normalizeRoleAssignments({
+        role: role || user.role,
+        roles: roles || user.roles
+      });
+      if (!assignments.length) {
+        return res.status(400).json({ error: 'At least one valid role is required' });
+      }
+      user.roles = assignments;
+      user.role = pickPrimaryRole(assignments);
+      try {
+        await assertCoverageAfterChange(user._id, assignments);
+      } catch (coverageError) {
+        return res.status(coverageError.statusCode || 400).json({ error: coverageError.message });
+      }
+    }
 
     // Hash new password if provided
     if (password) {
       const bcrypt = require('bcrypt');
       user.password = await bcrypt.hash(password, 10);
+    }
+
+    const finalAssignments = normalizeRoleAssignments(user);
+    if (!finalAssignments.some((assignment) => ELIGIBLE_OFFICIAL_ROLES.includes(assignment.name))) {
+      user.najvisaLiga = '';
     }
 
     const updatedUser = await user.save();
@@ -212,7 +325,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     // Check if user is admin
-    if (req.user.role !== 'Admin') {
+    if (!isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -237,6 +350,12 @@ router.delete('/:id', async (req, res) => {
       return res.status(400).json({ 
         error: 'Cannot delete user with existing game assignments. Please remove assignments first.' 
       });
+    }
+
+    try {
+      await assertCoverageAfterChange(user._id, [], { removing: true });
+    } catch (coverageError) {
+      return res.status(coverageError.statusCode || 400).json({ error: coverageError.message });
     }
 
     await User.deleteOne({ _id: req.params.id });
