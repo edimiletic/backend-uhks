@@ -6,7 +6,7 @@ const Kontrola = require('../models/Kontrola');
 const BasketballGame = require('../models/BasketballGames');
 const authenticateUser = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/roleMiddleware');
-const { canWriteKontrola } = require('../config/roles');
+const { canWriteKontrola, canViewFullKontrola, canViewStatistics, getStatisticsRoles } = require('../config/roles');
 
 const requireKontrolaWriter = async (req, res, next) => {
   try {
@@ -23,6 +23,30 @@ const requireKontrolaWriter = async (req, res, next) => {
     if (!canWriteKontrola(req.user, game)) {
       return res.status(403).json({
         error: 'Kontrolu piše kontrolor. Ako kontrolor nije dodijeljen, piše je delegat utakmice.'
+      });
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+const requireKontrolaViewer = async (req, res, next) => {
+  try {
+    const gameId = req.body.gameId || req.params.gameId;
+    if (!gameId) {
+      return res.status(400).json({ error: 'gameId is required' });
+    }
+
+    const game = await BasketballGame.findById(gameId);
+    if (!game) {
+      return res.status(404).json({ error: 'Utakmica nije pronađena' });
+    }
+
+    if (!canViewFullKontrola(req.user, game)) {
+      return res.status(403).json({
+        error: 'Nemate dozvolu za pregled kontrole ove utakmice.'
       });
     }
 
@@ -208,10 +232,10 @@ router.delete('/:gameId',
   }
 );
 
-// Get all kontrole for a specific game (Admin/Delegat only - to see all referee grades)
+// Get all kontrole for a specific game (writers and competition/officials commissioners)
 router.get('/game/:gameId/all', 
   authenticateUser, 
-  requireKontrolaWriter, 
+  requireKontrolaViewer, 
   async (req, res) => {
     try {
       const { gameId } = req.params;
@@ -237,13 +261,21 @@ router.get('/game/:gameId/all',
 // GET - Get all kontrola data for statistics (Admin only)
 router.get('/statistics', 
   authenticateUser, 
-  requireRole(['Admin']), 
+  requireRole(['Admin', 'Povjerenik natjecanja', 'Povjerenik za službene osobe', 'Povjerenik za pomoćne suce']), 
   async (req, res) => {
     try {
       console.log('🔍 Getting all kontrola data for statistics');
       console.log('Query parameters received:', req.query);
       
-      const { startDate, endDate, competition, role } = req.query;
+      const { startDate, endDate, competition } = req.query;
+      let { role } = req.query;
+      const allowedRoles = getStatisticsRoles(req.user);
+      if (!canViewStatistics(req.user) || !allowedRoles.length) {
+        return res.status(403).json({ error: 'Nemate pristup statistici.' });
+      }
+      if (!role || !allowedRoles.includes(role)) {
+        role = allowedRoles[0];
+      }
       
       // Add mongoose import if missing
       const mongoose = require('mongoose');

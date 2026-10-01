@@ -12,7 +12,9 @@ const {
   ALL_COMPETITIONS,
   ELIGIBLE_OFFICIAL_ROLES,
   getRoleNames,
+  userHasRole,
   canViewEligibleOfficials,
+  getStatisticsRoles,
   getEligibilityCompetitions,
   isEligibleForCompetition,
   getCompetitionRank
@@ -35,7 +37,12 @@ router.get('/referees', async (req, res) => {
     .select('_id name surname email role roles personalCode rang najvisaLiga')
     .sort({ role: 1, surname: 1, name: 1 });
 
-    res.json(referees);
+    const allowedRoles = getStatisticsRoles(req.user);
+    const visibleReferees = allowedRoles.length
+      ? referees.filter((referee) => allowedRoles.some((role) => userHasRole(referee, role)))
+      : referees;
+
+    res.json(visibleReferees);
   } catch (error) {
     console.error('Get referees error:', error);
     res.status(500).json({ error: 'Failed to fetch referees' });

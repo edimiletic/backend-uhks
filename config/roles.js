@@ -102,6 +102,21 @@ const canViewEligibleOfficials = (userOrRole) =>
   userHasRole(userOrRole, 'Povjerenik natjecanja') ||
   userHasRole(userOrRole, 'Povjerenik za službene osobe');
 
+const canViewStatistics = (userOrRole) =>
+  isAdminUser(userOrRole) || userHasAnyRole(userOrRole, COMMISSIONER_ROLES);
+
+const getStatisticsRoles = (userOrRole) => {
+  if (!canViewStatistics(userOrRole)) return [];
+  if (
+    isAdminUser(userOrRole) ||
+    userHasRole(userOrRole, 'Povjerenik natjecanja') ||
+    userHasRole(userOrRole, 'Povjerenik za službene osobe')
+  ) {
+    return GAME_ASSIGNMENT_ROLES.slice();
+  }
+  return ['Pomoćni Sudac'];
+};
+
 const getEligibilityCompetitions = (userOrRole) => {
   if (isAdminUser(userOrRole)) return ALL_COMPETITIONS.slice();
   const calendar = getCompetitionsForRole(userOrRole, 'Povjerenik natjecanja');
@@ -318,6 +333,12 @@ const canWriteKontrola = (user, game) => {
   return userHasRole(user, 'Delegat') && isAssignedAs(game, user._id, 'Delegat');
 };
 
+const canViewFullKontrola = (user, game) => {
+  if (!user || !game) return false;
+  if (isAdminUser(user) || canWriteKontrola(user, game)) return true;
+  return canManageCalendar(user, game.competition) || canNominateOfficials(user, game.competition);
+};
+
 const isTopProfessionalCompetition = (competition) =>
   TOP_PROFESSIONAL_COMPETITIONS.includes(competition);
 
@@ -335,6 +356,24 @@ const adminUserQuery = () => ({
   ]
 });
 
+const commissionerRoleQuery = (roleName) => ({
+  $or: [
+    { role: roleName },
+    { 'roles.name': roleName }
+  ]
+});
+
+const shouldReceiveAssignmentResponse = (user, assignmentRole, competition) => {
+  if (isAdminUser(user)) return true;
+  if (assignmentRole === 'Pomoćni Sudac') {
+    return userHasRoleForCompetition(user, 'Povjerenik za pomoćne suce', competition);
+  }
+  if (OFFICIAL_NOMINATION_ROLES.includes(assignmentRole)) {
+    return userHasRoleForCompetition(user, 'Povjerenik za službene osobe', competition);
+  }
+  return false;
+};
+
 module.exports = {
   USER_ROLES,
   GAME_ASSIGNMENT_ROLES,
@@ -348,6 +387,8 @@ module.exports = {
   isWithinNominationCap,
   isEligibleForCompetition,
   canViewEligibleOfficials,
+  canViewStatistics,
+  getStatisticsRoles,
   getEligibilityCompetitions,
   normalizeRoleAssignments,
   pickPrimaryRole,
@@ -367,10 +408,13 @@ module.exports = {
   getGamesVisibilityFilter,
   canAssignGameRole,
   canWriteKontrola,
+  canViewFullKontrola,
   hasKontrolor,
   isTopProfessionalCompetition,
   gameAssignmentRoleQuery,
   adminUserQuery,
+  commissionerRoleQuery,
+  shouldReceiveAssignmentResponse,
   COMPETITION_RANK,
   getCompetitionRank,
   isBlockingScheduleConflict,

@@ -10,7 +10,16 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['GAME_ASSIGNMENT', 'ASSIGNMENT_RESPONSE', 'KONTROLA_RECEIVED', 'ASSIGNMENT_RELEASED'],
+    enum: [
+      'GAME_ASSIGNMENT',
+      'ASSIGNMENT_RESPONSE',
+      'KONTROLA_RECEIVED',
+      'ASSIGNMENT_RELEASED',
+      'GAME_SCHEDULE_CHANGED',
+      'ASSIGNMENT_REMOVED',
+      'COLLEAGUE_REPLACED',
+      'NOMINATION_EXPIRED'
+    ],
     required: true
   },
   message: {
@@ -144,6 +153,104 @@ notificationSchema.statics.createAssignmentReleasedCommissionerNotification = as
     });
   } catch (error) {
     console.error('Error creating commissioner release notification:', error);
+    throw error;
+  }
+};
+
+// Static method to create game assignment notification
+notificationSchema.statics.createAssignmentRemovedNotification = async function(userId, gameId, gameDetails) {
+  try {
+    const message = `Nominacija je povučena: ${gameDetails.homeTeam} vs ${gameDetails.awayTeam}, ${gameDetails.date} u ${gameDetails.time} (${gameDetails.venue}).`;
+    return this.create({
+      userId,
+      type: 'ASSIGNMENT_REMOVED',
+      message,
+      gameId,
+      isRead: false
+    });
+  } catch (error) {
+    console.error('Error creating assignment removed notification:', error);
+    throw error;
+  }
+};
+
+notificationSchema.statics.createNominationExpiredNotification = async function(userId, gameId, gameDetails) {
+  try {
+    const message = `Nominacija je pala jer niste odgovorili na vrijeme: ${gameDetails.homeTeam} vs ${gameDetails.awayTeam}, ${gameDetails.date} u ${gameDetails.time} (${gameDetails.venue}).`;
+    return this.create({
+      userId,
+      type: 'NOMINATION_EXPIRED',
+      message,
+      gameId,
+      isRead: false
+    });
+  } catch (error) {
+    console.error('Error creating nomination expired notification:', error);
+    throw error;
+  }
+};
+
+notificationSchema.statics.createNominationExpiredCommissionerNotification = async function(userId, gameId, gameDetails, officialName, role) {
+  try {
+    const message = `Nominacija pala zbog neodziva: ${officialName} (${role}) na utakmici ${gameDetails.homeTeam} vs ${gameDetails.awayTeam}, ${gameDetails.date} u ${gameDetails.time}.`;
+    return this.create({
+      userId,
+      type: 'NOMINATION_EXPIRED',
+      message,
+      gameId,
+      isRead: false
+    });
+  } catch (error) {
+    console.error('Error creating nomination expired commissioner notification:', error);
+    throw error;
+  }
+};
+
+notificationSchema.statics.createGameScheduleChangedNotifications = async function(userIds, gameId, gameDetails) {
+  try {
+    const uniqueIds = [...new Set((userIds || []).filter(Boolean).map((id) => id.toString()))];
+    if (!uniqueIds.length) {
+      return [];
+    }
+
+    const message = `Termin utakmice je promijenjen: ${gameDetails.homeTeam} vs ${gameDetails.awayTeam}. Novi termin: ${gameDetails.date} u ${gameDetails.time} (${gameDetails.venue}).`;
+    const notifications = uniqueIds.map((userId) => ({
+      userId,
+      type: 'GAME_SCHEDULE_CHANGED',
+      message,
+      gameId,
+      isRead: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }));
+
+    return this.insertMany(notifications);
+  } catch (error) {
+    console.error('Error creating schedule change notifications:', error);
+    throw error;
+  }
+};
+
+notificationSchema.statics.createColleagueReplacedNotifications = async function(userIds, gameId, message) {
+  try {
+    const uniqueIds = [...new Set((userIds || []).filter(Boolean).map((id) => id.toString()))];
+    if (!uniqueIds.length) {
+      return [];
+    }
+
+    const notifications = uniqueIds.map((userId) => ({
+      userId,
+      type: 'COLLEAGUE_REPLACED',
+      message,
+      gameId,
+      isRead: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }));
+
+    return this.insertMany(notifications);
+  } catch (error) {
+    console.error('Error creating colleague replacement notifications:', error);
     throw error;
   }
 };
@@ -379,6 +486,22 @@ notificationSchema.pre('save', function(next) {
 
   if (this.type === 'ASSIGNMENT_RELEASED' && !this.gameId) {
     return next(new Error('ASSIGNMENT_RELEASED notifications must have a gameId'));
+  }
+
+  if (this.type === 'GAME_SCHEDULE_CHANGED' && !this.gameId) {
+    return next(new Error('GAME_SCHEDULE_CHANGED notifications must have a gameId'));
+  }
+
+  if (this.type === 'ASSIGNMENT_REMOVED' && !this.gameId) {
+    return next(new Error('ASSIGNMENT_REMOVED notifications must have a gameId'));
+  }
+
+  if (this.type === 'COLLEAGUE_REPLACED' && !this.gameId) {
+    return next(new Error('COLLEAGUE_REPLACED notifications must have a gameId'));
+  }
+
+  if (this.type === 'NOMINATION_EXPIRED' && !this.gameId) {
+    return next(new Error('NOMINATION_EXPIRED notifications must have a gameId'));
   }
   
   next();

@@ -5,7 +5,7 @@ const TravelExpense = require('../models/TravelExpense');
 const User = require('../models/User');
 const authenticateUser = require('../middleware/authMiddleware');
 const {requireRole} = require('../middleware/roleMiddleware');
-const { isAdminUser } = require('../config/roles');
+const { isAdminUser, getStatisticsRoles } = require('../config/roles');
 
 router.use(authenticateUser);
 
@@ -85,7 +85,7 @@ router.get('/my', async (req, res) => {
 });
 
 // READ - Get all travel expenses (admin/manager functionality)
-router.get('/', requireRole(['Admin']), async (req, res) => {
+router.get('/', requireRole(['Admin', 'Povjerenik natjecanja', 'Povjerenik za službene osobe', 'Povjerenik za pomoćne suce']), async (req, res) => {
   try {
     // Extract filter parameters from query string
     const { id, type, userName, year, month, state } = req.query;
@@ -99,9 +99,20 @@ router.get('/', requireRole(['Admin']), async (req, res) => {
     if (month) filter.month = month;
     if (state) filter.state = new RegExp(state, 'i');
 
+    const allowedRoles = getStatisticsRoles(req.user);
+    if (!allowedRoles.length) {
+      return res.status(403).json({ error: 'Nemate pristup statistici troškova.' });
+    }
+    if (allowedRoles.length === 1 && allowedRoles[0] === 'Pomoćni Sudac') {
+      const assistants = await User.find({
+        $or: [{ role: 'Pomoćni Sudac' }, { 'roles.name': 'Pomoćni Sudac' }]
+      }).select('_id');
+      filter.userId = { $in: assistants.map((user) => user._id) };
+    }
+
     // Get all expenses with optional filtering
     let query = TravelExpense.find(filter)
-      .populate('userId', 'name surname')
+      .populate('userId', 'name surname role roles')
       .populate('reviewedBy', 'name surname')
       .sort({ createdAt: -1 });
 

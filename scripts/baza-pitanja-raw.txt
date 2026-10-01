@@ -1,0 +1,316 @@
+Redni broj 	Tekst pitanja 	Točan odgovor
+1
+Kod skok-šuta ili drugog šuta u kretanju moment šuta započinje kada igrač započne kretnju samo loptom prema gore i prema
+protivničkom košu. 	NE
+2
+Tijekom posljednje akcije prije isteka vremena za kraj četvrtine ili produžetka, igrač može biti bilo gdje na terenu i biti u momentu
+šuta. 	DA
+3 	Prekomjerno zamahivanje laktovima bez kontakta može predstavljati tehničku pogrešku kategorije 1 	DA
+4
+Nepropisna igra na loptu tijekom posljednjeg ili jedinog slobodnog bacanja od strane obrambenog igrača može rezultirati
+tehničkom pogreškom kategorije 2 i jednim poenom za napadačku momčad DA
+5
+Taktička prekid pogreška je nedozvoljeni kontakt koji ne doseže razinu grube pogreške, ali prekida tijek igre i dovodi protivnika u
+nepovoljan položaj 	DA
+6 	Kriterij taktičke prekid pogreške za zaustavljanje tranzicije primjenjuje se i nakon što napadač započne moment šuta 	NE
+7
+Nakon isključenja igrača zbog kombinacije koja uključuje grubu pogrešku, izvode se dodatne kazne posebno zbog samog
+isključenja 	NE
+8 	Dijele li se prema novim pravilima tehničke pogreške igrača na dvije kategorije (kategorija 1 i kategorija 2)? 	DA
+9 	Je li simuliranje pogreške (flooping) klasificirano kao tehnička pogreška kategorije 1? 	DA
+10
+Hoće li igrač biti isključen s ostatka utakmice ako mu se dosude jedna tehnička pogreška kategorije 1 i jedna gruba pogreška
+(flagrant foul) 	DA
+11
+Može li se provjera na zahtjev glavnog trenera (HCC) putem Instant Replay sustava (IRS) zatražiti isključivo u zadnje dvije minute
+četvrte četvrtine? 	NE
+12
+Smije li igrač ponovno započeti vođenje lopte ako je izgubio kontrolu nad njom zbog nenamjernog ispuštanja, ali pritom niti jedan
+drugi igrač nije dotaknuo loptu? 	NE
+13 	Smatra li se svaki pokušaj šuta iz zadnjeg (obrambenog) polja momentom šuta u bilo kojem trenutku utakmice? 	NE
+14
+Ako obrambeni igrač drži ruke šutera i potpuno ga omete u postizanju pogotka tako da lopta uopće ne napusti ruku šutera, smatra
+li se da je taj igrač bio u momentu šuta 	DA
+15
+Ako je taktička prekid pogreška (disruptive foul), dosuđena na igraču koji nije u momentu šuta, igraču će se dodijeliti 2 slobodna
+bacanja 	DA
+16
+Ako je tehnička pogreška dosuđena osoblju s klupe momčadi, tehnička pogreška kategorije 1 dosuđuje se treneru i broji se kao
+momčadska pogreška 	NE
+17 	Igrač neće biti isključen iz utakmice kada su mu dosuđene dvije tehničke pogreške kategorije 1 	NE
+18
+Kada je igrač u momentu šuta prilikom prodora prema košu i nakon što je na njemu napravljena pogreška doda loptu, smatra se da
+taj igrač više nije u momentu šuta 	DA
+19 	Korištenje izraza ili pokreta koji bi vrijeđali ili poticali gledatelje spada pod tehničke pogreške kategorije 2 	NE
+20
+Trener će biti isključen s utakmice kada su mu dosuđene dvije tehničke pogreške kategorije 1 radi njegovog osobnog nesportskog
+ponašanja 	DA
+21 	Hoće li igrač biti isključen s ostatka utakmice ako mu se dosude dvije tehničke pogreške kategorije 2? 	NE
+22
+Hoće li igrač biti isključen s ostatka utakmice ako mu se dosudi jedna tehnička pogreške kategorije 1 i dvije taktičke pogreške
+(disruptive foul)? 	NE
+23 	U zapisniku će se tehnička pogreške kategorije 1 bilježiti kao Ⓣ, a tehnička pogreška kategorije 2 kao T. 	DA
+24 	Treneru momčadi i ostalom osoblju na klupi moguće je dodijeliti tehničku pogrešku kategorije 2? 	NE
+25 	Hoće li trener momčadi biti udaljen sa utakmice sljedećom kombinacijom tehničkih pogrešaka kategorije 1: "C", "B", "BD" 	DA
+26
+U zapisniku će se tehnička pogreška kategorije 1/Diskvalificirajuća pogreška pratećeg člana momčadi bilježiti kao "BD", a tehnička
+pogreška kategorija 1 osobama na klupi kao "B" 	DA
+27
+Započinje li moment šuta kod kontinuiranog prodora prema košu kada igrač skupi loptu i uspostavi kontrolu nakon završetka
+vođenja? 	DA
+28 	Uračunava li se tehnička pogreška kategorije 2 u isključenje igrača iz igre? 	NE
+29 	Je li se gruba pogreška ( flagrant foul ) broji kao momčadska pogreaška? 	DA
+30
+Igraču A6 dosudi se jedna tehnička pogreška kategorije 1 u prvoj četvrtini, nakon toga u trečoj četvrtini A6 napravi grubu pogrešku
+( flagrant foul) nad igračem B12. Hoće li igrač A6 biti isključen iz igre? 	DA
+31
+Glavni trener mora zatražiti zahtjev i IRs pregled mora se dogoditi najkasnije kada suci zaustave irgu prvi puta nakon odluke i prije
+nego lopta postane živa ponovno. 	DA
+32
+Sa 1:32 na satu za igru u četvrtoj četvrtini, ekipa A je u posjedu lopte 5 sekundi kada igrači A1 i B1 budu isključeni zbog udaranja
+jedan drugoga u zadnjem polju elkipe A. Ekipi A je odobrena minuta odmora. Igra se može nastaviti jedino u zadnjem polju ekipe
+A. 	NE
+33
+Blizu bočne linije, A1 s loptom u rukama blisko je čuvan od igrača B1. A1 dodirne tijelom igrača B1, koji ima nogu van granica
+igrališta. To je prekršaj igrača A1. 	NE
+34
+A1 dodaje loptu prema prednjem polju. Lopta dira suca koji stoji na središnjoj liniji i opkoračuje ju. A2 koji je još u zadnjem polju
+dira loptu. Prekršaj? 	NE
+35
+IRS pregled se ne može koristiti za odluku, u bilo koje vrijeme utakmice, da li se pogreška B1 na A1 može smatrati kao pogreška
+na igraču koji je u pokušaju šuta 	DA
+36
+Bilo kada tijekom igre suci mogu provjeriti na IRS je li se nakon dosuđene pogreške dogodila neptopisna igra na loptu ili
+nepropisno doticanje lopte u silaznoj putanji i je li taj prekršaj dosuđen ispravno 	DA
+37
+Igrač A1 je ozlijeđen i igra je zaustavljena. Pošto igrač A1 nije sposoban da nastavi s igrom odmah, sudac se oglasi i pokaže
+službeni signal za izmjenu. Bilo koji tim zatraži minutu odmora, prije nego je zamjena ušla u teren. Ako se igrač A1 oporavio za
+vrijeme minute odmora, može nastavi igrati . 	DA
+38
+Ekipa A je predala u za to predviđeno vrijeme listu zapisničaru. Brojevi dva igrača na dresovima su različiti od njihovih brojeva na
+dresovima ili su imena igrača izostavljena u zapisniku. To je otkriveno nakon početka utakmice. Tehnička pogreška dosudit će se
+treneru ekipe A. 	NE
+39 	Kada na tabli imaju crvena svjetla oko cijelo perimetra, ta svjetla imaju prednost u odnosu na signal sata za igru. 	DA
+40
+Na početku utakmice skakaču B1 je dosuđena osobna pogreška nad igračem A1 nakon što je lopta napustila ruke prvog suca kod
+pobacivanja na početnom podbacivanju. Igra će biti nastavljena ubacivanjem za ekipu A iza bočne linije u njihovom prednjem polju
+najbliže središnjoj liniji, sa 24 sekundi na satu za napad. 	NE
+41
+Sa 4:17 na satu za igru u četvrtini, za vrijeme ubacivanja zbog promjenjivog posjeda izvođač A1 potroši više od 5 sekundi za
+izvođenje lopte. To je prekršaj igrača A1. Smjer strelice za promjenjivi posjed će se promijeniti odmah u smjeru za ekipu B. 	DA
+42 	Lopta postaje živa i posjed lopte ekipe počinje kada sudac stavi loptu na raspolaganje igraču da bi ju izveo van granica igrališta. 	DA
+43
+U isto vrijeme se oglasi signal za istek prve četvrtine i igrač B1 napravi nesportsku pogrešku nad igračem A1. Suci odluče da se
+signal za istek četvrtine oglasio prije nego se desila nesportska pogreška igrača B1. Prije početka druge četvrtine igrač A1 će
+izvesti dva slobodna bacanja bez skakača. Igra će bi nastavljena ubacivanjem izvan granica igrališta za ekipu A sa crte za
+ubacivanje u prednjem polju ekipe A. Ekipa A će ima 14 sekundi na satu za napad. Ekipa A neće izgubiti pravo na posjed lopte za
+slijedeći promjenjivi posjed u situaciji podbacivanja. 	DA
+44
+Igrač A1 s loptom u rukama skače u zraka, kada bude ispravno blokiran od strane igrača B1. Oba igrača nakon toga doskaču na
+pod s jednom ili obje ruke čvrsto na lopti. Ovo je držana lopta. 	DA
+45
+Igrač A1 s loptom u rukama prodire prema košu u pokušaju postizanja koša za 2 poena. Igrač B1 načini osobnu pogrešku nad
+igračem A1, nakon čega A1 načini prekršaj koraka. Lopta uđe u koš. Koš igrača A1 će se priznati. 	NE
+46 	Ekipa A ima ubacivanje van granica igrališta sa 0,2 ili 0,1. Koš se može postići samo dodirivanjem i izravnim zakucavanjem. 	DA
+47
+Sa 2:02 na satu za igru u četvrtoj četvrtini, igrač A1 postiže pogodak kada lopta prođe kroz koš. Sa 2:00 na satu za napad igrač B1
+je spreman za uvesti loptu u igru sa čelne linije. Sat za igru može se zaustaviti. 	NE
+48
+Lopta je u zraku kod pokušaja šuta A1 na koš kada se oglasi signal na sat za napad. Lopta promaši obruč, nakon čega B1 odbije
+loptu van granica igrališta. Signal se zanemaruje i lopta će se dodijeli ekipi A za ubacivanje van granica igrališta. 	NE
+49
+Pokušaj šuta igrača A1 za 2 poena je uspješan kada se oglasi signal sata za igru za istek četvrtine. Suci nisu sigurni da li se
+dogodio prekršaj isteka napada ekipe A. IRS pregled se može koristiti za odlučivanje, na kraju četvrtine, da li je uspješan pokušaj
+šuta igrača A1 bio izveden prije nego se oglasio signal sata za igru za kraj četvrtine. Pregled se nadalje može koristiti kod
+odlučivanja da li se dogodio prekršaja isteka napada ekipe A. 	DA
+50
+S 5:53 na satu za igru u četvrtoj četvrtini, lopta se kotrlja po terenu blizu bočne linije kada A1 i B1 žele doći u posjed lopte. Lopta
+izađe van granica igrališta. Ekipi A je dodijeljena lopta za ubacivanje van granica igrališta. Suci nisu sigurni koji je igrač uzrokovao
+da lopta izađe van granica igrališta. IRS pregled se može koristiti. 	NE
+51 	Zahtjev za HCC može se povući u svakom trenutku. 	NE
+52
+Trener ekipe B zatraži HCC. Trener uspostavi vizualni kontakt s najbližim sucem i glasno kaže „provjera“ i pokaže službeni signal
+za HCC. Odmah nakon toga i prije nego sudac odobri zahtjev signalom za HCC, trener ekipe B zatraži da mu se zahtjev poništiti.
+Zahtjev se može povući. 	DA
+53
+Igraču A1 se dosudi gruba pogreška nad igračem B1 za vrijeme intervala igre između prve i druge četvrtine. Prije početka druge
+četvrtine, igrač B1 će izvesti dva slobodna bacanja bez skakača. Igra će se nastavi sa linije za ubacivanje u prednjem polju za
+ekipu B. Ekipa B će na satu za napad ima 14 sekundi. Smjer strelice za napad će ostati nepromijenjen. 	DA
+54
+Igrač A2 vodi loptu u zadnjem polju kada se igraču A1 dosudi tehnička pogreška. Bilo koji igrač ekipe B će izvesti slobodno
+bacanje, bez skakača. U oba slučaja, igra će biti nastavljena ubacivanjem za ekipu A na najbližem mjestu gdje je bila lopta u
+trenutku kada se tehnička pogreška dogodila. Ekipa A će imati novih 24 sekundi za napad. 	NE
+55
+Mogućnost izmjene je upravo završila kada izmjena A6 dotrči do zapisničkog stola, glasno zatraži zamjenu. Signal mjeritelja
+vremena se pogrešno oglasi. Sudac zazviždi u zviždaljku. Lopta je mrtva i sat za igru je zaustavljen kada je uobičajeno prilika za
+zamjenu. Međutim, zbog toga što je zahtjev za zamjenu igrača A6 došao kasno, zamjena se ne može odobriti. Igra će biti
+nastavljena odmah. 	DA
+56
+Pokušaj šuta igrača A1 je neuspješan i lopta nije dirala obruč. A1 uhvati loptu i namjerno ju baci u tablu, nakon čega ju uhvati ili
+dodirne prije nego ju je dodirnuo drugi igrač. Ovo je prekršaj igrača A1. 	NE
+57
+Sa 25 sekundi na satu za igru u četvrtoj četvrtini i rezultatom A 72-B 72, ekipa A je u stekla posjed lopte. A1 vodi loptu u zadnjem
+polju 5 sekundi kada suci zaustave igru zbog toga što je sat za napad pogrešno resetiran. Ekipa A će ima novih 8 sekundi za
+prenije loptu u prednje polje. 	NE
+58
+Sa 6 sekundi na satu za napad, kod pokušaja šuta A1 lopta je u zraku kada se dogodi obostrana pogreška između A2 i B2. Strelica
+za promjenjivi posjed pokazuje u smjeru ekipe A. Lopta promaši obruč. Ekipa A će imati 6 sekundi na satu za napad. 	DA
+59
+Nakon A1 zadnjeg slobodnog bacanja, lopta se odbija od obruča. B1 ispravno želi udari loptu dalje od koša ali ona uđe u koš.
+Kapetanu na terenu ekipe A će se dodijeliti 2 poena. 	DA
+60
+Lopta je u zraku kod pokušaja šuta igrača A1 kada B1 načini pogrešku na A1. Zatim B2 ispravno dira loptu u uzlaznoj putanji.
+Lopta uđe u koš. Koš će se priznati. 	NE
+61
+A1 u pokušaju šuta prodire prema košu. Dok je u zraku A1, umjesto da završi prodor šutom na koš, A1 dodaje loptu A2 koji se
+nalazi u uglu (korneru) terena. Zatim A1 udara u B1 koji je u dodiru s poljem polukruga. Ispravna akcija. 	DA
+62
+A1 je u pokušaju šuta na koš s loptom koja mu je još u rukama kada B1 maše rukama u blizini očiju šutera ili ometa šutera glasno
+vičuću ili snažno udara nogama na terenu. Pokušaj šuta A1 je zatim uspješan. Koš igrača A1 će se priznati. Igraču B1 će se
+dosuditi tehnička pogreška. 	NE
+63
+Igrač trener A1 je načinio 4 pogreške kao igrač i 1 tehničku pogrešku kao trener. Igrač trener A1 ne može nastavi participirati u igri
+kao igrač jer je načinio ukupno 5 pogrešaka kao igrač i kao igrač trener. A1 može nastavi participirati u igri kao trener. 	DA
+64
+A1 ima loptu u rukama u zadnjem polju. A2 je u prednjem polju i napreduje prema protivničkom košu a nema ni jednog igrača
+ekipe B između A2 i koša. Prije nego je A1 ispustio loptu kod dodavanja prema A2, B1 načini pogrešku na A2 od iza. To je osobna
+pogreška. 	DA
+65
+B1 načini pogrešku na A1 u pokušaju šuta na koš. Nakon pogreške, A1 je još uvijek u pokušaju šuta, B2 načini pogrešku na A1.
+Pogreška igrača B2 će se zanemariti osim ako je gruba ili isključujuća pogreška. 	DA
+66
+S 2:13 na satu za igru u četvrtoj četvrtini, B1 načini pogrešku na A1. To je šesta pogreška ekipe B u četvrtoj četvrtini. Igraču A1 su
+dodijeljena 2 slobodna bacanja. Umjesto A1, suci upute A2 da izvede 2 slobodna bacanja. Greška je prepoznata kada je sat za
+igru zaustavljen na 1:49 u četvrtoj četvrtini (to je bilo prvo zaustavljanje igre nakon slobodnih bacanja). Greška se može ispraviti. 	DA
+67
+Ako greška predstavlja izravnu odluku suca da pogrešan igrač izvede slobodno/a bacanje/a, bez obzira da li je pogodio ili
+promašio, ista će bi poništena i ispravni igrač će izvesti slobodna bacanja sudi će se tehnička pogreška igraču. 	NE
+68
+S 2:43 na satu za igru u prvoj četvrtini, sat za igru je zaustavljen zbog prekršaja lopte van granica igrališta. Prije ubacivanja lopte,
+brojevi na displeju sata za igru nestanu. Mjeritelj vremena rese ra sustav. Kada sustav ponovno proradi, sat za igru se krivo postavi
+na 1:43. Greška je prepoznata za vrijeme intervala između treće i četvrte četvrtine. Četvrta četvrtina će se igrati 11 minuta. 	DA
+69
+Sa 4:17 na satu za igru u četvrtini, za vrijeme ubacivanja zbog promjenjivog posjeda izvođač A1 potroši više od 5 sekundi za
+izvođenje lopte. To je prekršaj igrača A1. Smjer strelice za promjenjivi posjed će se promijeniti odmah u smjeru za ekipu B. 	DA
+70
+Sa 2:02 na satu za igru u četvrtoj četvrtini, igrač A1 postiže pogodak kada lopta prođe kroz koš. Sa 2:00 na satu za napad igrač B1
+je spreman za uvesti loptu u igru sa čelne linije. Sat za igru može se zaustaviti. 	NE
+71
+Na početku četvrtine izvođač A1 napravi prekršaj na produžetku središnje linije. Igra će se nastavi ubacivanjem lopte za ekipu B u
+prednjem polju ekipe B najbliže središnjoj liniji s 24 sekundi na satu za napad 	NE
+72
+Za vrijeme intervala igre prije početka utakmice, igraču A1 je dosuđena tehnička pogreška. Prije početka utakmice, trener ekipe B
+određuje da će igrač B6 izvesti jedno slobodno bacanje, unatoč tome što igrač B6 nije član početnih 5 igrača koji započinju
+utakmicu. Dozvoljeno? 	NE
+73
+Prvi sudac podbacuje loptu na početnom podbacivanju. Odmah nakon što je lopta ispravno dodirnuta od strane igrača A1 dogodi
+se držana lopta između igrača A2 i B2.Prvi sudac će ponoviti početno podbacivanje u središnjem krugu između igrača koji su već
+bili uključeni u početno podbacivanje. 	NE
+74
+Prvi sudac podbacuje loptu na početnom podbacivanju. Odmah nakon što je lopta ispravno dodirnuta od strane igrača A1, ista ode
+van granica igrališta. Ekipa B će dobiti loptu za ubacivanja van granica igrališta, kao rezultat prekršaja igrača A1. Ako
+je izvođenje u zadnjem polju ekipa B će na satu za napad ima 24 sekunde.
+DA
+75
+U trećoj četvrtini, ekipi A je dodijeljeno izvođenje lopte iz njihovog zadnjeg polja.Dok drži loptu izvođač A1 pomjeri svoje ruke iznad
+granične linije tako da je lopta iznad unutrašnjosti terena. Igrač B1 uhvati loptu iz ruku igrača A1 ili izbaci loptu iz
+ruku igrača A1 bez tjelesnog kontakta nad igračem A1. Dozvoljena radnja igrača B1?
+NE
+76
+U trećoj četvrtini, ekipi A je dodijeljeno izvođenje lopte u njihovom prednjem polju.Izvođač A1 drži loptu u rukama kada igrač B1
+pomjeri svoje ruke iznad granične linije, sa 7 sekundi na satu za napad. To je prekršaj kod izvođenje igrača B1. Ekipa A će dobiti
+14 sekundi na satu za napad.
+DA
+77
+Igrač B2 izbaci loptu van granica igrališta na strani zapisničkog stola sa 1:24 sekundi na satu za napad zadnjem polju ekipe B u
+četvrtoj četvrtini. Nakon odobrene minute odmora ekipe A, ako se trener ekipe A odluči za ubacivanje sa linije za ubacivanje u
+prednjem polju, ono treba biti izvršeno na strani zapisničkog stola. 	DA
+78
+Nakon što izvođač van granica igrališta baci loptu i ona dira teren van granica igrališta i on ju ponovno dira, a nije se pomjerio više
+od 1 metra, to je ispravna akcija.
+DA
+79
+Sa 25.2 na satu za igru, ekipa A ima posjed lopte. Sa 1 sekundom na satu za napad, A1 šutira na koš. Dok je lopta u zraku, oglasi
+se signal za istek napada. Lopta promaši obruč. Nakon još 1.2 sekunde, oglasi se signal za kraj četvrtine. To nije
+prekršaj isteka napada ekipe A. Sudac treba pričekati da bi vidio da li će ekipa B odmah steći jasan posjed lopte i zbog toga neće
+sudi prekršaj isteka napada. 	DA
+80
+Nakon A1 zadnjeg slobodnog bacanja, lopta se odbija od obruča. B1 ispravno želi udari loptu dalje od koša ali ona uđe u koš.
+Kapetanu na terenu ekipe A će se dodijeliti 2 poena. 	DA
+81
+A1 u pokušaju šuta prodire prema košu. Dok je u zraku A1, umjesto da završi prodor šutom na koš, A1 dodaje loptu A2 koji se
+nalazi u uglu (korneru) terena. Zatim A1 udara u B1 koji je u dodiru s poljem polukruga. Ispravna akcija
+DA
+82
+A1 je u prodoru prema koš u pokušaju šuta na koš. Umjesto da završi prodor šutom na koš, A1 dodaje loptu A2 koji se nalazi
+izravno iza njega. A1 zatim udara u B1 koji je u kontaktu s poljem polukruga. U približno isto vrijeme, A2 s loptom u rukama je u
+prodoru izravno prema košu u pokušaju postizanja koša. Ispravna akcija. 	DA
+83
+Prilikom neuspješnog pokušaja šuta za 2 poena igrača A1, na njemu igrač B1 načini pogrešku kada se oglasi signal sata za igru za
+kraj drugog produžetka. IRS pregled se može koristiti
+DA
+84
+S 1:39 na satu za igru u četvrtoj četvrtini, A1 je u pokušaju šuta kada se dogodi pogreška dalje od situacije šuta. Osobna pogreška
+je suđena A2 na B2. IRS pregled ne može koristiti
+NE
+85
+S 7.5 sekundi na satu za igru u četvrtoj četvrtini i upravo prije nego je izvođač A ispusti loptu iz prednjeg polja, B1 se dosudi
+tehnička pogreška. U približno isto vrijeme, B2 se dosudi gruba pogreška na A2 od strane drugog suca. Suci nisu sigurni kojim su
+se redoslijedom pogreške dogodile. IRS pregled se može koristiti kojim redoslijedom su se pogreške dogodile. 	NE
+86
+Sa 5 sekundi na satu za napad, A vodi loptu kada se B1 dosudi tehnička pogreška, nakon čega se treneru ekipa A dosudi tehnička
+pogreška. Nakon što se ponište kazne iste težine, igra će se nastavi ubacivanjem van granica igrališta za ekipu A. Ekipa A će imati
+novih 14 sekundi na satu za napad
+NE
+87
+Izvođač A1 u prednjem polju dodaje loptu prema A2. A2 skače iz prednjeg polja, hvata loptu dok je u zraku i doskoči opkoračujući
+središnju liniju. Ovo je prekršaj igrača A2.
+DA
+88
+Sat za igru radi, ekipa A ima 6 igrača na terenu. Kada je prepoznato da ekipa A koja je u posjedu lopte ima 6 igrača na terenu.
+Treneru ekipe A će se dosuditi tehnička pogreška, upisana kao B1. 	DA
+89
+S 5:53 na satu za igru u četvrtoj četvrtini, lopta se kotrlja po terenu blizu bočne linije kada A1 i B1 žele doći u posjed lopte. Lopta
+izađe van granica igrališta. Ekipi A je dodijeljena lopta za ubacivanje van granica igrališta. Suci nisu sigurni koji je igrač uzrokovao
+da lopta izađe van granica igrališta. IRS pregled se može koristiti
+NE
+90
+S 1:45 na satu za igru u produžetku A1 u blizini bočne linije dodaje loptu prema A2. Za vrijeme dodavanja B1 udari loptu van
+granica igrališta. Suci nisu sigurni da li je A1 već bio van granica igrališta kada je dodavao loptu A2. IRS pregled se može koristiti
+za odluku, da li je igrač koji nije u pokušaju šuta bio van granica igrališta
+NE
+91
+S 8 sekundi na satu za igru u četvrtoj četvrtini A2 postigne pogodak za 2-poena. Rezultat je sada A 82- B 80. Nakon izvođenje
+lopte iza čelne linije ekipe B, trener ekipe A vjeruje da se pogodak A1 treba računa 3-poena i zatraži provjeru HCC. Suci uoče
+zahtjev za provjeru nakon što B1 postigne pogodak za 2-poena s 1 sekundom na satu za igru. Rezultat je sada A 82- B 82. Zahtjev
+za provjeru ekipe A će se odobriti.Suci trebaju odmah zaustaviti igru. 	DA
+92
+Kada je zatražena provjera HCC nakon što je počela minuta odmora bilo koje ekipe, ta minuta odmora će se nastaviti bez
+prekidanja. Taj zahtjev HCC može bi otkazan.
+NE
+93
+A1 postigne pogodak pred kraj isteka napada i igra se nastavi. Pomoćni trener ekipe B vjeruje da se signal sat za napad oglasio
+prije nego je izveden pokušaj šuta i zatraži provjeru HCC, koristeći ispravnu proceduru. Zahtjev će se odobriti.
+NE
+94
+Radnja kada igrač A6 u prostoru oko klupe za rezervne igrače udari suigrača A7 sudit će se kao isključujuća pogreška igraču i bit
+će upisana kao „D“ i sudit će se treneru ekipe A, upisana kao B2. 	DA
+95
+Igraču B1 dosuđena gruba pogeška. Trener ekipe B zatraži minutu odmora. Sudci nisu sigurni da li je pogreška B1 nesportska
+pogreška. B6 je zatražio izmjenu igrača B1. Za vrijeme IRS B6 se vraća na svoju klupu za rezervne igrače. Dozvoljeno? 	DA
+96
+Samo odobreni zahtjev za provjeru HCC će se unijeti u zapisnik u 2 polja, pored HCC. U prvo polje zapisničar unosi četvrtinu ili
+produžetak i u drugo polje minutu vremena igranja u četvrtini ili produžetku. 	DA
+97
+IRS pregled se može koristiti za pregled, u bilo koje vrijeme igre, da li će se osobna osobna pogreška, gruba pogreška ili
+iskljućujuća pogreška smatrati tehničkom pogreškom? 	DA
+98
+Završavajući tranziciju, A1 ima loptu u rukama u pokušaju šuta na koš kada B1 napravi kontakt od iza na ruku A1 pokušavajući
+blokirati loptu. To je osobna pogreška? 	DA
+99
+S 5:28 na satu za igru u drugoj četvrtini, A1 vodi loptu blizu bočne linije i dodaje prema prema A2 koji postigne pogodak. Trener
+ekipe B vjeruje da je ekipa A napravila očigledan prekršaj 8 sekundi prije nego je ekipa A postigla pogodak. Trener ekipe B zatraži
+HCC, koristeći ispravnu proceduru. Provjera trenera ekipe B se neće odobriti? 	DA
+100
+S 1:37 na satu za igru u četvrtoj četvrtini lopta izađe van granica igrališta. Ekipi A je dodjeljena lopta za ubacivanje. Sudci nisu
+sigurni u avoju inicijalnu odluku. IRS pregled se može koristiti? 	DA

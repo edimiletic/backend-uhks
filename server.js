@@ -14,6 +14,7 @@ const kontrolaRoutes = require('./routes/kontrola');
 const catalogRoutes = require('./routes/catalog');
 const seedCatalog = require('./scripts/seedCatalog');
 const seedDisplayIds = require('./scripts/seedDisplayIds');
+const { startNominationExpiryJob } = require('./utils/nominationExpiry');
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use(express.json());
 connectDB().then(async () => {
   await seedCatalog();
   await seedDisplayIds();
+  startNominationExpiryJob();
 }).catch((error) => {
   console.error('❌ Seed error:', error.message);
 });
