@@ -20,7 +20,7 @@ const ASSISTANT_NOMINATION_ROLES = ['Pomoćni Sudac'];
 const ELIGIBLE_OFFICIAL_ROLES = ['Sudac', 'Delegat', 'Kontrolor'];
 
 const TOP_PROFESSIONAL_COMPETITIONS = [
-  'FAVBET PREMIJER LIGA',
+  'SuperSport Premijer liga',
   'PREMIJER ŽENSKA LIGA',
   'PRVA MUŠKA LIGA',
   'KUP «K. ĆOSIĆ»',
@@ -28,6 +28,7 @@ const TOP_PROFESSIONAL_COMPETITIONS = [
 ];
 
 const ALL_COMPETITIONS = [
+  'SuperSport Premijer liga',
   'FAVBET PREMIJER LIGA',
   'KUP «K. ĆOSIĆ»',
   'PRVA MUŠKA LIGA',
@@ -54,6 +55,7 @@ const ALL_COMPETITIONS = [
 const REFEREE_RANKS = ['Državni sudac', 'Županijski sudac'];
 
 const COMPETITION_RANK = {
+  'SuperSport Premijer liga': 100,
   'FAVBET PREMIJER LIGA': 100,
   'KUP «K. ĆOSIĆ»': 100,
   'PREMIJER ŽENSKA LIGA': 95,
@@ -251,6 +253,12 @@ const canNominateOfficials = (userOrRole, competition) =>
 const canNominateAssistants = (userOrRole, competition) =>
   userHasRoleForCompetition(userOrRole, 'Povjerenik za pomoćne suce', competition) || isAdminUser(userOrRole);
 
+const isOfficialOnCompetitions = (user, competitions) => {
+  if (!user || !competitions?.length) return false;
+  if (userHasRole(user, 'Pomoćni Sudac')) return true;
+  return competitions.some((competition) => isEligibleForCompetition(user, competition));
+};
+
 const getSupervisedAbsencePersonalCodes = (viewer, users) => {
   if (isAdminUser(viewer)) return null;
   const codes = new Set();
@@ -258,12 +266,15 @@ const getSupervisedAbsencePersonalCodes = (viewer, users) => {
 
   const watchesOfficials = userHasRole(viewer, 'Povjerenik za službene osobe');
   const watchesAssistants = userHasRole(viewer, 'Povjerenik za pomoćne suce');
-  if (!watchesOfficials && !watchesAssistants) {
+  const watchesCalendar = userHasRole(viewer, 'Povjerenik natjecanja');
+  if (!watchesOfficials && !watchesAssistants && !watchesCalendar) {
     return [...codes];
   }
 
   const officialComps = getCompetitionsForRole(viewer, 'Povjerenik za službene osobe');
   const officialList = officialComps === null ? ALL_COMPETITIONS : officialComps;
+  const calendarComps = getCompetitionsForRole(viewer, 'Povjerenik natjecanja');
+  const calendarList = calendarComps === null ? ALL_COMPETITIONS : calendarComps;
 
   (users || []).forEach((user) => {
     if (!user?.personalCode) return;
@@ -273,6 +284,13 @@ const getSupervisedAbsencePersonalCodes = (viewer, users) => {
       }
     }
     if (watchesAssistants && userHasRole(user, 'Pomoćni Sudac')) {
+      codes.add(user.personalCode);
+    }
+    if (
+      watchesCalendar &&
+      GAME_ASSIGNMENT_ROLES.some((role) => userHasRole(user, role)) &&
+      isOfficialOnCompetitions(user, calendarList)
+    ) {
       codes.add(user.personalCode);
     }
   });

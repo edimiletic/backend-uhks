@@ -27,11 +27,18 @@ router.get('/', async (req, res) => {
 // GET - Get all notifications with pagination
 router.get('/all', async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
-    const skip = (page - 1) * limit;
+    const { page = 1, limit = 20, type, unread } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const filter = { userId: req.user._id };
+    if (type) {
+      filter.type = type;
+    }
+    if (unread === 'true') {
+      filter.isRead = false;
+    }
 
-    const total = await Notification.countDocuments({ userId: req.user._id });
-    const notifications = await Notification.find({ userId: req.user._id })
+    const total = await Notification.countDocuments(filter);
+    const notifications = await Notification.find(filter)
       .populate('gameId', 'homeTeam awayTeam date time venue')
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -39,7 +46,7 @@ router.get('/all', async (req, res) => {
 
     res.json({
       notifications,
-      totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / parseInt(limit)),
       currentPage: parseInt(page),
       total
     });

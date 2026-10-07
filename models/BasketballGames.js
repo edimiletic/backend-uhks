@@ -32,6 +32,7 @@ const basketballGameSchema = new mongoose.Schema({
     type: String,
     required: true,
     enum: [
+      'SuperSport Premijer liga',
       'FAVBET PREMIJER LIGA',
       'KUP «K. ĆOSIĆ»',
       'PRVA MUŠKA LIGA',

@@ -40,7 +40,7 @@ const validateGameData = (req, res, next) => {
 
   // Validate competition
   const validCompetitions = [
-    'FAVBET PREMIJER LIGA',
+    'SuperSport Premijer liga',
     'KUP «K. ĆOSIĆ»',
     'PRVA MUŠKA LIGA',
     'ZAVRŠNI TURNIR ZA POPUNU PRVE MUŠKE LIGE',

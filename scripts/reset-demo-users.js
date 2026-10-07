@@ -13,7 +13,7 @@ const { ALL_COMPETITIONS } = require('../config/roles');
 const PASSWORD = 'Lozinka123!';
 
 const TOP_COMMISSIONER_COMPETITIONS = [
-  'FAVBET PREMIJER LIGA',
+  'SuperSport Premijer liga',
   'PRVA MUŠKA LIGA'
 ];
 const OTHER_COMMISSIONER_COMPETITIONS = ALL_COMPETITIONS.filter(
@@ -82,18 +82,18 @@ const fieldOfficial = (username, name, surname, personalCode, role, extra = {}) 
 });
 
 newUsers.push(
-  fieldOfficial('sudac1', 'Josip', 'Perić', '10000000007', 'Sudac', { rang: 'Državni sudac', najvisaLiga: 'FAVBET PREMIJER LIGA' }),
-  fieldOfficial('sudac2', 'Nikola', 'Šimić', '10000000008', 'Sudac', { rang: 'Državni sudac', najvisaLiga: 'FAVBET PREMIJER LIGA' }),
-  fieldOfficial('sudac3', 'Filip', 'Radić', '10000000009', 'Sudac', { rang: 'Državni sudac', najvisaLiga: 'FAVBET PREMIJER LIGA' }),
-  fieldOfficial('sudac4', 'Ante', 'Lovrić', '10000000015', 'Sudac', { rang: 'Državni sudac', najvisaLiga: 'FAVBET PREMIJER LIGA' }),
-  fieldOfficial('sudac5', 'Domagoj', 'Petrović', '10000000016', 'Sudac', { rang: 'Državni sudac', najvisaLiga: 'FAVBET PREMIJER LIGA' }),
+  fieldOfficial('sudac1', 'Josip', 'Perić', '10000000007', 'Sudac', { rang: 'Državni sudac', najvisaLiga: 'SuperSport Premijer liga' }),
+  fieldOfficial('sudac2', 'Nikola', 'Šimić', '10000000008', 'Sudac', { rang: 'Državni sudac', najvisaLiga: 'SuperSport Premijer liga' }),
+  fieldOfficial('sudac3', 'Filip', 'Radić', '10000000009', 'Sudac', { rang: 'Državni sudac', najvisaLiga: 'SuperSport Premijer liga' }),
+  fieldOfficial('sudac4', 'Ante', 'Lovrić', '10000000015', 'Sudac', { rang: 'Državni sudac', najvisaLiga: 'SuperSport Premijer liga' }),
+  fieldOfficial('sudac5', 'Domagoj', 'Petrović', '10000000016', 'Sudac', { rang: 'Državni sudac', najvisaLiga: 'SuperSport Premijer liga' }),
   fieldOfficial('sudac6', 'Vedran', 'Jukić', '10000000017', 'Sudac', { rang: 'Državni sudac', najvisaLiga: 'PRVA MUŠKA LIGA' }),
   fieldOfficial('sudac7', 'Hrvoje', 'Tomljanović', '10000000018', 'Sudac', { rang: 'Županijski sudac', najvisaLiga: 'PRVA MUŠKA LIGA' }),
   fieldOfficial('sudac8', 'Igor', 'Barišić', '10000000019', 'Sudac', { rang: 'Županijski sudac', najvisaLiga: 'JUNIORI' }),
   fieldOfficial('sudac9', 'Krešimir', 'Grgić', '10000000020', 'Sudac', { rang: 'Županijski sudac', najvisaLiga: 'JUNIORI' }),
   fieldOfficial('sudac10', 'Mario', 'Posavec', '10000000021', 'Sudac', { rang: '', najvisaLiga: 'JUNIORI' }),
   fieldOfficial('delegat1', 'Ivana', 'Matić', '10000000010', 'Delegat', { najvisaLiga: 'PREMIJER ŽENSKA LIGA' }),
-  fieldOfficial('delegat2', 'Davor', 'Knežević', '10000000011', 'Delegat', { najvisaLiga: 'FAVBET PREMIJER LIGA' }),
+  fieldOfficial('delegat2', 'Davor', 'Knežević', '10000000011', 'Delegat', { najvisaLiga: 'SuperSport Premijer liga' }),
   fieldOfficial('delegat3', 'Sanja', 'Kralj', '10000000022', 'Delegat', { najvisaLiga: 'PRVA MUŠKA LIGA' }),
   fieldOfficial('delegat4', 'Boris', 'Herceg', '10000000023', 'Delegat', { najvisaLiga: 'JUNIORI' }),
   fieldOfficial('delegat5', 'Tatjana', 'Vidak', '10000000024', 'Delegat', { najvisaLiga: 'JUNIORI' }),
@@ -107,9 +107,9 @@ newUsers.push(
   fieldOfficial('pomocni8', 'Ivan', 'Čolak', '10000000029', 'Pomoćni Sudac', { rang: 'Županijski sudac' }),
   fieldOfficial('pomocni9', 'Matej', 'Knez', '10000000030', 'Pomoćni Sudac', { rang: '' }),
   fieldOfficial('pomocni10', 'Fran', 'Jelić', '10000000031', 'Pomoćni Sudac', { rang: 'Državni sudac' }),
-  fieldOfficial('kontrolor1', 'Zoran', 'Grubišić', '10000000032', 'Kontrolor', { najvisaLiga: 'FAVBET PREMIJER LIGA' }),
-  fieldOfficial('kontrolor2', 'Alen', 'Mandić', '10000000033', 'Kontrolor', { najvisaLiga: 'FAVBET PREMIJER LIGA' }),
-  fieldOfficial('kontrolor3', 'Darko', 'Škorić', '10000000034', 'Kontrolor', { najvisaLiga: 'FAVBET PREMIJER LIGA' })
+  fieldOfficial('kontrolor1', 'Zoran', 'Grubišić', '10000000032', 'Kontrolor', { najvisaLiga: 'SuperSport Premijer liga' }),
+  fieldOfficial('kontrolor2', 'Alen', 'Mandić', '10000000033', 'Kontrolor', { najvisaLiga: 'SuperSport Premijer liga' }),
+  fieldOfficial('kontrolor3', 'Darko', 'Škorić', '10000000034', 'Kontrolor', { najvisaLiga: 'SuperSport Premijer liga' })
 );
 
 const isAdmin = (user) =>
