@@ -1,6 +1,7 @@
 // backend/models/basketballGame.js
 const mongoose = require('mongoose');
 const { withDisplayId } = require('../utils/displayId');
+const { STORED_COMPETITIONS } = require('../config/roles');
 
 const basketballGameSchema = new mongoose.Schema({
   // Basic game information
@@ -31,30 +32,7 @@ const basketballGameSchema = new mongoose.Schema({
   competition: {
     type: String,
     required: true,
-    enum: [
-      'SuperSport Premijer liga',
-      'FAVBET PREMIJER LIGA',
-      'KUP «K. ĆOSIĆ»',
-      'PRVA MUŠKA LIGA',
-      'ZAVRŠNI TURNIR ZA POPUNU PRVE MUŠKE LIGE',
-      'DRUGE MUŠKE LIGE',
-      'TREĆE MUŠKE LIGE',
-      'ČETVRTE MUŠKE LIGE',
-      'PREMIJER ŽENSKA LIGA',
-      'PRVA ŽENSKA LIGA',
-      'KUP «R. MEGLAJ-RIMAC»',
-      'JUNIORI',
-      'JUNIORKE',
-      'KADETI',
-      'KADETKINJE',
-      'MLAĐI KADETI',
-      'MLAĐE KADETKINJE',
-      'DJEČACI I DJEVOJČICE',
-      'NATJECANJE SREDNJIH ŠKOLA',
-      'NATJECANJE OSNOVNIH ŠKOLA',
-      'Natjecanje MINI KOŠARKA',
-      '3X3'
-    ],
+    enum: STORED_COMPETITIONS,
     trim: true
   },
   

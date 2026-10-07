@@ -1,7 +1,7 @@
 // backend/middleware/basketballGameMiddleware.js
 const BasketballGame = require('../models/basketballGame');
 const User = require('../models/User');
-const { isAdminUser, userHasRole, canAccessGame } = require('../config/roles');
+const { ALL_COMPETITIONS, isAdminUser, userHasRole, canAccessGame } = require('../config/roles');
 
 // Middleware to validate game creation/update data
 const validateGameData = (req, res, next) => {
@@ -38,32 +38,7 @@ const validateGameData = (req, res, next) => {
     return res.status(400).json({ error: 'Invalid time format. Use HH:MM format' });
   }
 
-  // Validate competition
-  const validCompetitions = [
-    'SuperSport Premijer liga',
-    'KUP «K. ĆOSIĆ»',
-    'PRVA MUŠKA LIGA',
-    'ZAVRŠNI TURNIR ZA POPUNU PRVE MUŠKE LIGE',
-    'DRUGE MUŠKE LIGE',
-    'TREĆE MUŠKE LIGE',
-    'ČETVRTE MUŠKE LIGE',
-    'PREMIJER ŽENSKA LIGA',
-    'PRVA ŽENSKA LIGA',
-    'KUP «R. MEGLAJ-RIMAC»',
-    'JUNIORI',
-    'JUNIORKE',
-    'KADETI',
-    'KADETKINJE',
-    'MLAĐI KADETI',
-    'MLAĐE KADETKINJE',
-    'DJEČACI I DJEVOJČICE',
-    'NATJECANJE SREDNJIH ŠKOLA',
-    'NATJECANJE OSNOVNIH ŠKOLA',
-    'Natjecanje MINI KOŠARKA',
-    '3X3'
-  ];
-
-  if (!validCompetitions.includes(competition)) {
+  if (!ALL_COMPETITIONS.includes(competition)) {
     return res.status(400).json({ error: 'Invalid competition' });
   }
 

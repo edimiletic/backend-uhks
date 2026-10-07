@@ -19,26 +19,23 @@ const OFFICIAL_NOMINATION_ROLES = ['Sudac', 'Delegat', 'Kontrolor'];
 const ASSISTANT_NOMINATION_ROLES = ['Pomoćni Sudac'];
 const ELIGIBLE_OFFICIAL_ROLES = ['Sudac', 'Delegat', 'Kontrolor'];
 
-const TOP_PROFESSIONAL_COMPETITIONS = [
+const ALL_COMPETITIONS = [
   'SuperSport Premijer liga',
-  'PREMIJER ŽENSKA LIGA',
   'PRVA MUŠKA LIGA',
+  'PREMIJER ŽENSKA LIGA',
   'KUP «K. ĆOSIĆ»',
   'KUP «R. MEGLAJ-RIMAC»'
 ];
 
-const ALL_COMPETITIONS = [
-  'SuperSport Premijer liga',
+const TOP_PROFESSIONAL_COMPETITIONS = ALL_COMPETITIONS.slice();
+
+const LEGACY_COMPETITIONS = [
   'FAVBET PREMIJER LIGA',
-  'KUP «K. ĆOSIĆ»',
-  'PRVA MUŠKA LIGA',
   'ZAVRŠNI TURNIR ZA POPUNU PRVE MUŠKE LIGE',
   'DRUGE MUŠKE LIGE',
   'TREĆE MUŠKE LIGE',
   'ČETVRTE MUŠKE LIGE',
-  'PREMIJER ŽENSKA LIGA',
   'PRVA ŽENSKA LIGA',
-  'KUP «R. MEGLAJ-RIMAC»',
   'JUNIORI',
   'JUNIORKE',
   'KADETI',
@@ -51,6 +48,8 @@ const ALL_COMPETITIONS = [
   'Natjecanje MINI KOŠARKA',
   '3X3'
 ];
+
+const STORED_COMPETITIONS = [...ALL_COMPETITIONS, ...LEGACY_COMPETITIONS];
 
 const REFEREE_RANKS = ['Državni sudac', 'Županijski sudac'];
 
@@ -79,7 +78,11 @@ const COMPETITION_RANK = {
   '3X3': 3
 };
 
-const getCompetitionRank = (competition) => COMPETITION_RANK[competition] || 0;
+const canonicalCompetition = (competition) =>
+  competition === 'FAVBET PREMIJER LIGA' ? 'SuperSport Premijer liga' : (competition || '');
+
+const getCompetitionRank = (competition) =>
+  COMPETITION_RANK[canonicalCompetition(competition)] || COMPETITION_RANK[competition] || 0;
 
 const isWithinNominationCap = (user, competition, assignmentRole) => {
   if (assignmentRole === 'Pomoćni Sudac') return true;
@@ -178,7 +181,9 @@ const normalizeRoleAssignments = (userOrRole) => {
       const name = entry.name || entry.role;
       if (!USER_ROLES.includes(name)) return null;
       const competitions = Array.isArray(entry.competitions)
-        ? entry.competitions.filter((competition) => ALL_COMPETITIONS.includes(competition))
+        ? entry.competitions
+            .map((competition) => canonicalCompetition(competition))
+            .filter((competition) => ALL_COMPETITIONS.includes(competition))
         : [];
       return { name, competitions };
     })
@@ -402,6 +407,8 @@ module.exports = {
   REFEREE_RANKS,
   TOP_PROFESSIONAL_COMPETITIONS,
   ALL_COMPETITIONS,
+  STORED_COMPETITIONS,
+  canonicalCompetition,
   isWithinNominationCap,
   isEligibleForCompetition,
   canViewEligibleOfficials,

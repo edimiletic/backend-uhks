@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const {
   USER_ROLES,
-  ALL_COMPETITIONS,
+  STORED_COMPETITIONS,
   REFEREE_RANKS,
   normalizeRoleAssignments,
   pickPrimaryRole
@@ -16,7 +16,7 @@ const roleAssignmentSchema = new mongoose.Schema({
   },
   competitions: [{
     type: String,
-    enum: ALL_COMPETITIONS
+    enum: STORED_COMPETITIONS
   }]
 }, { _id: false });
 
@@ -86,7 +86,7 @@ const userSchema = new mongoose.Schema({
     default: '',
     trim: true,
     validate: {
-      validator: (value) => !value || ALL_COMPETITIONS.includes(value),
+      validator: (value) => !value || STORED_COMPETITIONS.includes(value),
       message: 'Invalid najvisa liga'
     }
   }
