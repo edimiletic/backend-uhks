@@ -258,6 +258,14 @@ router.delete('/:id', async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const end = new Date(absence.endDate);
+    end.setHours(0, 0, 0, 0);
+    if (end < today) {
+      return res.status(400).json({ error: 'cannot delete past absence' });
+    }
+
     await Absence.findByIdAndDelete(id);
 
     res.json({ message: 'Absence deleted successfully' });
