@@ -5,12 +5,43 @@ const TravelExpense = require('../models/TravelExpense');
 const User = require('../models/User');
 const authenticateUser = require('../middleware/authMiddleware');
 const {requireRole} = require('../middleware/roleMiddleware');
-const { isAdminUser, getStatisticsRoles } = require('../config/roles');
+const {
+  isAdminUser,
+  canViewStatistics,
+  getSupervisedAbsencePersonalCodes
+} = require('../config/roles');
 
 router.use(authenticateUser);
 
-const isOwner = (expense, user) => expense.userId.toString() === user._id.toString();
+const ownerId = (expense) => {
+  const user = expense.userId;
+  if (!user) return '';
+  return String(user._id || user);
+};
+
+const isOwner = (expense, user) => ownerId(expense) === user._id.toString();
 const isEditableByOfficial = (state) => state === 'Skica' || state === 'Odbijeno';
+
+const getSupervisedExpenseUserIds = async (viewer) => {
+  if (isAdminUser(viewer)) return null;
+  const users = await User.find({}, {
+    personalCode: 1,
+    name: 1,
+    surname: 1,
+    role: 1,
+    roles: 1,
+    najvisaLiga: 1
+  });
+  const codes = new Set(getSupervisedAbsencePersonalCodes(viewer, users) || []);
+  return users.filter((user) => codes.has(user.personalCode)).map((user) => user._id);
+};
+
+const canAccessTravelExpense = async (viewer, expense) => {
+  if (isAdminUser(viewer) || isOwner(expense, viewer)) return true;
+  if (!canViewStatistics(viewer)) return false;
+  const ids = await getSupervisedExpenseUserIds(viewer);
+  return (ids || []).some((id) => String(id) === ownerId(expense));
+};
 
 // CREATE - officials create their own report; admins can create for anyone
 router.post('/', async (req, res) => {
@@ -99,15 +130,12 @@ router.get('/', requireRole(['Admin', 'Povjerenik natjecanja', 'Povjerenik za sl
     if (month) filter.month = month;
     if (state) filter.state = new RegExp(state, 'i');
 
-    const allowedRoles = getStatisticsRoles(req.user);
-    if (!allowedRoles.length) {
-      return res.status(403).json({ error: 'Nemate pristup statistici troškova.' });
+    if (!canViewStatistics(req.user)) {
+      return res.status(403).json({ error: 'Nemate pristup pregledu troškova.' });
     }
-    if (allowedRoles.length === 1 && allowedRoles[0] === 'Pomoćni Sudac') {
-      const assistants = await User.find({
-        $or: [{ role: 'Pomoćni Sudac' }, { 'roles.name': 'Pomoćni Sudac' }]
-      }).select('_id');
-      filter.userId = { $in: assistants.map((user) => user._id) };
+    if (!isAdminUser(req.user)) {
+      const allowedIds = await getSupervisedExpenseUserIds(req.user);
+      filter.userId = { $in: allowedIds };
     }
 
     // Get all expenses with optional filtering
@@ -135,22 +163,17 @@ router.get('/', requireRole(['Admin', 'Povjerenik natjecanja', 'Povjerenik za sl
 });
 
 // READ - Get travel expense by ID
-// READ - Get travel expense by ID
 router.get('/:id', async (req, res) => {
   try {
     const expense = await TravelExpense.findById(req.params.id)
-      .populate('userId', 'name surname')
+      .populate('userId', 'name surname personalCode')
       .populate('reviewedBy', 'name surname');
 
     if (!expense) {
       return res.status(404).json({ error: 'Travel expense not found' });
     }
 
-    // Admin-only router; still ensure the report exists
-    const reportUserId = expense.userId._id
-      ? expense.userId._id.toString()
-      : expense.userId.toString();
-    if (reportUserId !== req.user._id.toString() && req.user.role !== 'Admin') {
+    if (!(await canAccessTravelExpense(req.user, expense))) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
