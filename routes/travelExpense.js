@@ -3,12 +3,14 @@ const express = require('express');
 const router = express.Router();
 const TravelExpense = require('../models/TravelExpense');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const authenticateUser = require('../middleware/authMiddleware');
 const {requireRole} = require('../middleware/roleMiddleware');
 const {
   isAdminUser,
   canViewStatistics,
-  getSupervisedAbsencePersonalCodes
+  getSupervisedAbsencePersonalCodes,
+  userHasRole
 } = require('../config/roles');
 
 router.use(authenticateUser);
@@ -41,6 +43,13 @@ const canAccessTravelExpense = async (viewer, expense) => {
   if (!canViewStatistics(viewer)) return false;
   const ids = await getSupervisedExpenseUserIds(viewer);
   return (ids || []).some((id) => String(id) === ownerId(expense));
+};
+
+const canReviewTravelExpense = async (viewer, expense) => {
+  if (isAdminUser(viewer)) return true;
+  if (!userHasRole(viewer, 'Povjerenik natjecanja')) return false;
+  if (isOwner(expense, viewer)) return false;
+  return canAccessTravelExpense(viewer, expense);
 };
 
 // CREATE - officials create their own report; admins can create for anyone
@@ -391,12 +400,16 @@ router.patch('/:id/submit', async (req, res) => {
   }
 });
 
-router.patch('/:id/review', requireRole(['Admin']), async (req, res) => {
+router.patch('/:id/review', requireRole(['Admin', 'Povjerenik natjecanja']), async (req, res) => {
   try {
     const expense = await TravelExpense.findById(req.params.id);
 
     if (!expense) {
       return res.status(404).json({ error: 'Travel expense not found' });
+    }
+
+    if (!(await canReviewTravelExpense(req.user, expense))) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
     if (expense.state !== 'Predano') {
@@ -426,9 +439,22 @@ router.patch('/:id/review', requireRole(['Admin']), async (req, res) => {
     expense.reviewedAt = new Date();
     expense.reviewedBy = req.user._id;
 
+    const ownerUserId = expense.userId;
     const updatedExpense = await expense.save();
     await updatedExpense.populate('userId', 'name surname');
     await updatedExpense.populate('reviewedBy', 'name surname');
+
+    try {
+      await Notification.createExpenseReviewNotification(ownerUserId, expense._id, {
+        approved: action === 'approve',
+        type: expense.type,
+        month: expense.month,
+        year: expense.year,
+        notes: action === 'reject' ? notes : ''
+      });
+    } catch (notifyError) {
+      console.error('Expense review notification error:', notifyError);
+    }
 
     res.json(updatedExpense);
   } catch (error) {

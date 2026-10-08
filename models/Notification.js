@@ -18,7 +18,9 @@ const notificationSchema = new mongoose.Schema({
       'GAME_SCHEDULE_CHANGED',
       'ASSIGNMENT_REMOVED',
       'COLLEAGUE_REPLACED',
-      'NOMINATION_EXPIRED'
+      'NOMINATION_EXPIRED',
+      'EXPENSE_APPROVED',
+      'EXPENSE_REJECTED'
     ],
     required: true
   },
@@ -39,6 +41,11 @@ const notificationSchema = new mongoose.Schema({
   kontrolaId: { // ← Add this new field
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Kontrola',
+    index: true
+  },
+  travelExpenseId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'TravelExpense',
     index: true
   },
   isRead: {
@@ -251,6 +258,29 @@ notificationSchema.statics.createColleagueReplacedNotifications = async function
     return this.insertMany(notifications);
   } catch (error) {
     console.error('Error creating colleague replacement notifications:', error);
+    throw error;
+  }
+};
+
+notificationSchema.statics.createExpenseReviewNotification = async function(userId, travelExpenseId, details) {
+  try {
+    const approved = details?.approved === true;
+    const period = `${details?.month || ''} ${details?.year || ''}`.trim();
+    const reportType = details?.type || 'putno izvješće';
+    const notes = (details?.notes || '').trim();
+    const message = approved
+      ? `Vaše putno izvješće (${reportType}, ${period}) je odobreno.`
+      : `Vaše putno izvješće (${reportType}, ${period}) je odbijeno.${notes ? ` Napomena: ${notes}` : ''}`;
+
+    return this.create({
+      userId,
+      type: approved ? 'EXPENSE_APPROVED' : 'EXPENSE_REJECTED',
+      message,
+      travelExpenseId,
+      isRead: false
+    });
+  } catch (error) {
+    console.error('Error creating expense review notification:', error);
     throw error;
   }
 };
@@ -502,6 +532,10 @@ notificationSchema.pre('save', function(next) {
 
   if (this.type === 'NOMINATION_EXPIRED' && !this.gameId) {
     return next(new Error('NOMINATION_EXPIRED notifications must have a gameId'));
+  }
+
+  if ((this.type === 'EXPENSE_APPROVED' || this.type === 'EXPENSE_REJECTED') && !this.travelExpenseId) {
+    return next(new Error('Expense review notifications must have a travelExpenseId'));
   }
   
   next();
