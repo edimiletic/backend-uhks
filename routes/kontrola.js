@@ -85,6 +85,19 @@ router.post('/', authenticateUser, requireKontrolaWriter, async (req, res) => {
   }
 });
 
+router.get('/count', authenticateUser, async (req, res) => {
+  try {
+    const filter = canViewStatistics(req.user)
+      ? {}
+      : { 'refereeGrades.refereeId': req.user._id };
+    const count = await Kontrola.countDocuments(filter);
+    res.json({ count });
+  } catch (error) {
+    console.error('Error counting kontrola:', error);
+    res.status(500).json({ error: 'Greška pri brojanju kontrola' });
+  }
+});
+
 // Test route (keep for debugging)
 router.get('/test', authenticateUser, (req, res) => {
   res.json({ message: 'Kontrola routes working', user: req.user.name, role: req.user.role });
