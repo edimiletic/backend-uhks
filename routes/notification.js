@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const Notification = require('../models/Notification');
 const authenticateUser = require('../middleware/authMiddleware');
+const { isAdminUser } = require('../config/roles');
 
 // Apply authentication middleware to all routes
 router.use(authenticateUser);
@@ -137,7 +138,7 @@ router.patch('/mark-all-read', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     // Check if user is admin
-    if (req.user.role !== 'Admin') {
+    if (!isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 

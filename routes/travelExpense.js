@@ -1,19 +1,42 @@
-// backend/routes/travelExpense.js
+const fs = require('fs');
 const express = require('express');
 const router = express.Router();
 const TravelExpense = require('../models/TravelExpense');
-const User = require('../models/User');
+const BasketballGame = require('../models/BasketballGames');
 const Notification = require('../models/Notification');
 const authenticateUser = require('../middleware/authMiddleware');
-const {requireRole} = require('../middleware/roleMiddleware');
+const { requireRole } = require('../middleware/roleMiddleware');
 const {
   isAdminUser,
-  canViewStatistics,
-  getSupervisedAbsencePersonalCodes,
-  userHasRole
+  canManageCalendar,
+  canNominateOfficials,
+  userHasRole,
+  GAME_ASSIGNMENT_ROLES,
+  canonicalCompetition
 } = require('../config/roles');
+const {
+  upload,
+  TEMPLATE_PATH,
+  toStoredFile,
+  absolutePath,
+  removeStoredFile,
+  removeExpenseFiles
+} = require('../utils/travelExpenseFiles');
 
 router.use(authenticateUser);
+
+const assignmentUserId = (assignment) => {
+  const assigned = assignment?.userId;
+  return String(typeof assigned === 'object' && assigned ? (assigned._id || assigned.id) : assigned || '');
+};
+
+const acceptedAssignment = (game, userId) =>
+  (game?.refereeAssignments || []).find(
+    (assignment) =>
+      assignmentUserId(assignment) === String(userId) &&
+      assignment.assignmentStatus === 'Accepted' &&
+      GAME_ASSIGNMENT_ROLES.includes(assignment.role)
+  );
 
 const ownerId = (expense) => {
   const user = expense.userId;
@@ -21,401 +44,298 @@ const ownerId = (expense) => {
   return String(user._id || user);
 };
 
-const isOwner = (expense, user) => ownerId(expense) === user._id.toString();
-const isEditableByOfficial = (state) => state === 'Skica' || state === 'Odbijeno';
+const isOwner = (expense, user) => ownerId(expense) === String(user._id);
 
-const getSupervisedExpenseUserIds = async (viewer) => {
-  if (isAdminUser(viewer)) return null;
-  const users = await User.find({}, {
-    personalCode: 1,
-    name: 1,
-    surname: 1,
-    role: 1,
-    roles: 1,
-    najvisaLiga: 1
-  });
-  const codes = new Set(getSupervisedAbsencePersonalCodes(viewer, users) || []);
-  return users.filter((user) => codes.has(user.personalCode)).map((user) => user._id);
+const gameCompetition = (expense) => {
+  const game = expense.gameId;
+  if (game && typeof game === 'object') return canonicalCompetition(game.competition);
+  return '';
 };
 
-const canAccessTravelExpense = async (viewer, expense) => {
+const canAccessTravelExpense = (viewer, expense) => {
   if (isAdminUser(viewer) || isOwner(expense, viewer)) return true;
-  if (!canViewStatistics(viewer)) return false;
-  const ids = await getSupervisedExpenseUserIds(viewer);
-  return (ids || []).some((id) => String(id) === ownerId(expense));
+  const competition = gameCompetition(expense);
+  return canManageCalendar(viewer, competition) || canNominateOfficials(viewer, competition);
 };
 
-const canReviewTravelExpense = async (viewer, expense) => {
+const canReviewTravelExpense = (viewer, expense) => {
+  if (isOwner(expense, viewer)) return false;
   if (isAdminUser(viewer)) return true;
   if (!userHasRole(viewer, 'Povjerenik natjecanja')) return false;
-  if (isOwner(expense, viewer)) return false;
-  return canAccessTravelExpense(viewer, expense);
+  return canManageCalendar(viewer, gameCompetition(expense));
 };
 
-// CREATE - officials create their own report; admins can create for anyone
-router.post('/', async (req, res) => {
+const multerFields = upload.fields([
+  { name: 'nalog', maxCount: 1 },
+  { name: 'fuelReceipt', maxCount: 1 },
+  { name: 'tollReceipt', maxCount: 1 }
+]);
+
+const handleUpload = (req, res, next) => {
+  multerFields(req, res, (error) => {
+    if (!error) return next();
+    return res.status(400).json({ error: error.message || 'Prijenos datoteke nije uspio.' });
+  });
+};
+
+const parseUsedHighway = (value) => value === true || value === 'true' || value === '1';
+
+router.get('/template', (_req, res) => {
+  if (!fs.existsSync(TEMPLATE_PATH)) {
+    return res.status(404).json({ error: 'Predložak putnog naloga nije pronađen.' });
+  }
+  res.download(TEMPLATE_PATH, 'Putni nalog HKS.xls');
+});
+
+router.get('/eligible-games', async (req, res) => {
   try {
-    const { type, season, year, month, userId } = req.body;
-
-    if (!type || !season || !year || !month) {
-      return res.status(400).json({ 
-        error: 'Missing required fields: type, season, year, month' 
-      });
-    }
-
-    let targetUserId = req.user._id;
-    if (isAdminUser(req.user) && userId) {
-      targetUserId = userId;
-      if (userId !== req.user._id.toString()) {
-        const targetUser = await User.findById(userId);
-        if (!targetUser) {
-          return res.status(404).json({ error: 'Target user not found' });
+    const games = await BasketballGame.find({
+      refereeAssignments: {
+        $elemMatch: {
+          userId: req.user._id,
+          assignmentStatus: 'Accepted',
+          role: { $in: GAME_ASSIGNMENT_ROLES }
         }
       }
-    }
+    }).sort({ date: -1 });
 
-    // Check if user already has a report for this type, year, and month
-    const existingReport = await TravelExpense.findOne({
-      userId: targetUserId,
-      type,
-      year,
-      month
-    });
+    const existing = await TravelExpense.find({ userId: req.user._id }).select('gameId state');
+    const blocking = new Set(
+      existing
+        .filter((expense) => expense.state !== 'Odbijeno')
+        .map((expense) => String(expense.gameId))
+    );
 
-    if (existingReport) {
-      return res.status(400).json({ 
-        error: 'A report already exists for this user, type, year, and month' 
-      });
-    }
+    const eligible = games
+      .map((game) => {
+        const assignment = acceptedAssignment(game, req.user._id);
+        if (!assignment || blocking.has(String(game._id))) return null;
+        return {
+          _id: game._id,
+          homeTeam: game.homeTeam,
+          awayTeam: game.awayTeam,
+          date: game.date,
+          time: game.time,
+          venue: game.venue,
+          competition: game.competition,
+          assignmentRole: assignment.role
+        };
+      })
+      .filter(Boolean);
 
-    const travelExpense = new TravelExpense({
-      type,
-      season,
-      year,
-      month,
-      userId: targetUserId,
-      state: 'Skica'
-    });
-
-    const savedExpense = await travelExpense.save();
-    
-    // Populate user information
-    await savedExpense.populate('userId', 'name surname');
-
-    res.status(201).json(savedExpense);
+    res.json(eligible);
   } catch (error) {
-    console.error('Create travel expense error:', error);
-    res.status(500).json({ error: 'Failed to create travel expense report' });
+    console.error('Eligible travel games error:', error);
+    res.status(500).json({ error: 'Neuspješno dohvaćanje utakmica za nalog.' });
   }
 });
 
-// READ - Get all travel expenses for current user
+router.post('/', handleUpload, async (req, res) => {
+  const uploaded = [
+    req.files?.nalog?.[0],
+    req.files?.fuelReceipt?.[0],
+    req.files?.tollReceipt?.[0]
+  ].filter(Boolean);
+
+  try {
+    const gameId = req.body.gameId;
+    const usedHighway = parseUsedHighway(req.body.usedHighway);
+    const nalog = req.files?.nalog?.[0];
+    const fuelReceipt = req.files?.fuelReceipt?.[0];
+    const tollReceipt = req.files?.tollReceipt?.[0];
+
+    if (!gameId) {
+      uploaded.forEach((file) => fs.unlink(file.path, () => {}));
+      return res.status(400).json({ error: 'Odaberite utakmicu.' });
+    }
+    if (!nalog || !fuelReceipt) {
+      uploaded.forEach((file) => fs.unlink(file.path, () => {}));
+      return res.status(400).json({ error: 'Obavezni su putni nalog i PDF računa goriva.' });
+    }
+    if (usedHighway && !tollReceipt) {
+      uploaded.forEach((file) => fs.unlink(file.path, () => {}));
+      return res.status(400).json({ error: 'Za autocestu priložite PDF računa cestarine.' });
+    }
+
+    const game = await BasketballGame.findById(gameId);
+    if (!game) {
+      uploaded.forEach((file) => fs.unlink(file.path, () => {}));
+      return res.status(404).json({ error: 'Utakmica nije pronađena.' });
+    }
+
+    const assignment = acceptedAssignment(game, req.user._id);
+    if (!assignment) {
+      uploaded.forEach((file) => fs.unlink(file.path, () => {}));
+      return res.status(403).json({
+        error: 'Putni nalog može predati samo osoba s prihvaćenom nominacijom na toj utakmici.'
+      });
+    }
+
+    const existing = await TravelExpense.findOne({ userId: req.user._id, gameId: game._id });
+    if (existing && existing.state !== 'Odbijeno') {
+      uploaded.forEach((file) => fs.unlink(file.path, () => {}));
+      return res.status(400).json({ error: 'Za ovu utakmicu već postoji putni nalog.' });
+    }
+
+    if (existing) {
+      removeExpenseFiles(existing);
+      existing.assignmentRole = assignment.role;
+      existing.usedHighway = usedHighway;
+      existing.nalogFile = toStoredFile(nalog);
+      existing.fuelReceiptFile = toStoredFile(fuelReceipt);
+      existing.tollReceiptFile = usedHighway ? toStoredFile(tollReceipt) : undefined;
+      existing.state = 'Predano';
+      existing.submittedAt = new Date();
+      existing.reviewedAt = undefined;
+      existing.reviewedBy = undefined;
+      existing.reviewComments = '';
+      const saved = await existing.save();
+      await saved.populate('userId', 'name surname');
+      await saved.populate('gameId', 'homeTeam awayTeam date time venue competition');
+      return res.status(200).json(saved);
+    }
+
+    const travelExpense = new TravelExpense({
+      userId: req.user._id,
+      gameId: game._id,
+      assignmentRole: assignment.role,
+      usedHighway,
+      nalogFile: toStoredFile(nalog),
+      fuelReceiptFile: toStoredFile(fuelReceipt),
+      tollReceiptFile: usedHighway ? toStoredFile(tollReceipt) : undefined,
+      state: 'Predano',
+      submittedAt: new Date()
+    });
+    const saved = await travelExpense.save();
+    await saved.populate('userId', 'name surname');
+    await saved.populate('gameId', 'homeTeam awayTeam date time venue competition');
+    res.status(201).json(saved);
+  } catch (error) {
+    uploaded.forEach((file) => fs.unlink(file.path, () => {}));
+    console.error('Create travel expense error:', error);
+    res.status(500).json({ error: 'Neuspješno spremanje putnog naloga.' });
+  }
+});
+
 router.get('/my', async (req, res) => {
   try {
     const expenses = await TravelExpense.find({ userId: req.user._id })
       .populate('userId', 'name surname')
+      .populate('gameId', 'homeTeam awayTeam date time venue competition')
       .populate('reviewedBy', 'name surname')
       .sort({ createdAt: -1 });
-
     res.json(expenses);
   } catch (error) {
     console.error('Get user travel expenses error:', error);
-    res.status(500).json({ error: 'Failed to fetch travel expenses' });
+    res.status(500).json({ error: 'Neuspješno dohvaćanje putnih naloga.' });
   }
 });
 
-// READ - Get all travel expenses (admin/manager functionality)
-router.get('/', requireRole(['Admin', 'Povjerenik natjecanja', 'Povjerenik za službene osobe', 'Povjerenik za pomoćne suce']), async (req, res) => {
+router.get('/', requireRole(['Admin', 'Povjerenik natjecanja', 'Povjerenik za službene osobe']), async (req, res) => {
   try {
-    // Extract filter parameters from query string
-    const { id, type, userName, year, month, state } = req.query;
-    
-    // Build filter object
-    let filter = {};
-    
-    if (id) filter._id = id;
-    if (type) filter.type = new RegExp(type, 'i'); // Case insensitive search
-    if (year) filter.year = parseInt(year);
-    if (month) filter.month = month;
-    if (state) filter.state = new RegExp(state, 'i');
-
-    if (!canViewStatistics(req.user)) {
-      return res.status(403).json({ error: 'Nemate pristup pregledu troškova.' });
-    }
-    if (!isAdminUser(req.user)) {
-      const allowedIds = await getSupervisedExpenseUserIds(req.user);
-      filter.userId = { $in: allowedIds };
-    }
-
-    // Get all expenses with optional filtering
-    let query = TravelExpense.find(filter)
+    const expenses = await TravelExpense.find({})
       .populate('userId', 'name surname role roles')
+      .populate('gameId', 'homeTeam awayTeam date time venue competition')
       .populate('reviewedBy', 'name surname')
       .sort({ createdAt: -1 });
 
-    const expenses = await query.exec();
-
-    // If userName filter is provided, filter after population
-    let filteredExpenses = expenses;
-    if (userName) {
-      filteredExpenses = expenses.filter(expense => {
-        const fullName = `${expense.userId.name} ${expense.userId.surname}`;
-        return fullName.toLowerCase().includes(userName.toLowerCase());
-      });
-    }
-
-    res.json(filteredExpenses);
+    const visible = expenses.filter((expense) => canAccessTravelExpense(req.user, expense));
+    res.json(visible);
   } catch (error) {
     console.error('Get all travel expenses error:', error);
-    res.status(500).json({ error: 'Failed to fetch travel expenses' });
+    res.status(500).json({ error: 'Neuspješno dohvaćanje putnih naloga.' });
   }
 });
 
-// READ - Get travel expense by ID
+router.get('/:id/files/:kind', async (req, res) => {
+  try {
+    const expense = await TravelExpense.findById(req.params.id).populate('gameId', 'competition');
+    if (!expense) {
+      return res.status(404).json({ error: 'Putni nalog nije pronađen.' });
+    }
+    if (!canAccessTravelExpense(req.user, expense)) {
+      return res.status(403).json({ error: 'Pristup odbijen.' });
+    }
+
+    const kind = req.params.kind;
+    const file =
+      kind === 'nalog' ? expense.nalogFile :
+      kind === 'fuel' ? expense.fuelReceiptFile :
+      kind === 'toll' ? expense.tollReceiptFile :
+      null;
+    if (!file?.storedName) {
+      return res.status(404).json({ error: 'Datoteka nije pronađena.' });
+    }
+
+    const filePath = absolutePath(file.storedName);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Datoteka nije pronađena na disku.' });
+    }
+    res.download(filePath, file.originalName);
+  } catch (error) {
+    console.error('Download travel file error:', error);
+    res.status(500).json({ error: 'Preuzimanje datoteke nije uspjelo.' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const expense = await TravelExpense.findById(req.params.id)
       .populate('userId', 'name surname personalCode')
+      .populate('gameId', 'homeTeam awayTeam date time venue competition')
       .populate('reviewedBy', 'name surname');
 
     if (!expense) {
-      return res.status(404).json({ error: 'Travel expense not found' });
+      return res.status(404).json({ error: 'Putni nalog nije pronađen.' });
     }
-
-    if (!(await canAccessTravelExpense(req.user, expense))) {
-      return res.status(403).json({ error: 'Access denied' });
+    if (!canAccessTravelExpense(req.user, expense)) {
+      return res.status(403).json({ error: 'Pristup odbijen.' });
     }
-
     res.json(expense);
   } catch (error) {
     console.error('Get travel expense by ID error:', error);
-    res.status(500).json({ error: 'Failed to fetch travel expense' });
+    res.status(500).json({ error: 'Neuspješno dohvaćanje putnog naloga.' });
   }
 });
 
-// Replace the duplicate PUT routes in your routes/travelExpense.js with this single, complete route:
-
-// UPDATE - Update an existing travel expense
-router.put('/:id', async (req, res) => {
-  try {
-    const expense = await TravelExpense.findById(req.params.id);
-
-    if (!expense) {
-      return res.status(404).json({ error: 'Travel expense not found' });
-    }
-
-    if (!isOwner(expense, req.user) && !isAdminUser(req.user)) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    if (expense.state === 'Potvrđeno') {
-      return res.status(400).json({ error: 'Cannot modify an approved expense report' });
-    }
-
-    if (expense.state === 'Predano' && !isAdminUser(req.user)) {
-      return res.status(400).json({ error: 'Cannot modify a submitted expense report' });
-    }
-
-    const { type, season, year, month, expenses } = req.body;
-
-    if (type) expense.type = type;
-    if (season) expense.season = season;
-    if (year) expense.year = year;
-    if (month) expense.month = month;
-    if (expenses) expense.expenses = expenses;
-
-    const updatedExpense = await expense.save();
-    
-    await updatedExpense.populate('userId', 'name surname');
-    await updatedExpense.populate('reviewedBy', 'name surname');
-
-    res.json(updatedExpense);
-  } catch (error) {
-    console.error('Update travel expense error:', error);
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    if (error.errors) {
-      console.error('Validation errors:', error.errors);
-    }
-    res.status(500).json({ error: 'Failed to update travel expense' });
-  }
-});
-// DELETE - Delete a travel expense
 router.delete('/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    
-    const expense = await TravelExpense.findById(id);
+    const expense = await TravelExpense.findById(req.params.id).populate('gameId', 'competition');
     if (!expense) {
-      return res.status(404).json({ error: 'Travel expense not found' });
+      return res.status(404).json({ error: 'Putni nalog nije pronađen.' });
     }
-
-    // Check if user owns this expense or is admin
     if (!isOwner(expense, req.user) && !isAdminUser(req.user)) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ error: 'Pristup odbijen.' });
+    }
+    if (expense.state !== 'Odbijeno' && !isAdminUser(req.user)) {
+      return res.status(400).json({ error: 'Možete obrisati samo odbijeni nalog.' });
+    }
+    if (expense.state === 'Potvrđeno' && !isAdminUser(req.user)) {
+      return res.status(400).json({ error: 'Odobreni nalog se ne može obrisati.' });
     }
 
-    if (!isEditableByOfficial(expense.state) && !isAdminUser(req.user)) {
-      return res.status(400).json({
-        error: 'Cannot delete submitted or approved reports.'
-      });
-    }
-
-    if (expense.state === 'Potvrđeno') {
-      return res.status(400).json({ error: 'Cannot delete an approved expense report' });
-    }
-
-    await TravelExpense.findByIdAndDelete(id);
-
-    res.json({ message: 'Travel expense deleted successfully' });
-
+    removeExpenseFiles(expense);
+    await TravelExpense.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Putni nalog je obrisan.' });
   } catch (error) {
-    console.error('Error deleting travel expense:', error);
-    res.status(500).json({ error: 'Server error while deleting travel expense' });
-  }
-});
-
-// PATCH - Add expense item to a travel expense report
-router.patch('/:id/expenses', async (req, res) => {
-  try {
-    const expense = await TravelExpense.findById(req.params.id);
-
-    if (!expense) {
-      return res.status(404).json({ error: 'Travel expense not found' });
-    }
-
-    if (!isOwner(expense, req.user) && !isAdminUser(req.user)) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    if (!isEditableByOfficial(expense.state)) {
-      return res.status(400).json({
-        error: 'Cannot add expense items to submitted or approved reports.'
-      });
-    }
-
-    // Updated field validation for new model structure
-    const { type, date, description, unit, quantity, unitPrice, competition, gameId, homeTeam, awayTeam } = req.body;
-
-    if (!type || !date || !description || !unit || quantity === undefined || unitPrice === undefined || !competition) {
-      return res.status(400).json({ 
-        error: 'Missing required expense fields: type, date, description, unit, quantity, unitPrice, competition' 
-      });
-    }
-
-    // Validate quantity and unitPrice are positive numbers
-    if (quantity <= 0 || unitPrice <= 0) {
-      return res.status(400).json({ 
-        error: 'Quantity and unit price must be positive numbers' 
-      });
-    }
-
-    // Create the expense item object
-    const expenseItem = {
-      type,
-      date: new Date(date), // Ensure proper date conversion
-      description,
-      unit,
-      quantity: Number(quantity), // Ensure it's a number
-      unitPrice: Number(unitPrice), // Ensure it's a number
-      competition,
-      amount: Number(quantity) * Number(unitPrice), // Calculate amount server-side
-      gameId: gameId || undefined,
-      homeTeam: homeTeam || undefined,
-      awayTeam: awayTeam || undefined
-    };
-
-    expense.expenses.push(expenseItem);
-
-    const updatedExpense = await expense.save(); 
-    await updatedExpense.populate('userId', 'name surname');
-
-    res.json(updatedExpense);
-  } catch (error) {
-    console.error('Add expense item error details:', error);
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    if (error.errors) {
-      console.error('Validation errors:', error.errors);
-    }
-    
-    // Return more specific error information
-    if (error.name === 'ValidationError') {
-      const validationErrors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({ 
-        error: 'Validation failed', 
-        details: validationErrors 
-      });
-    }
-    
-    res.status(500).json({ 
-      error: 'Failed to add expense item',
-      details: error.message 
-    });
-  }
-});
-
-// PATCH - Submit travel expense report (change state from 'Skica' to 'Predano')
-router.patch('/:id/submit', async (req, res) => {
-  try {
-    const expense = await TravelExpense.findById(req.params.id);
-
-    if (!expense) {
-      return res.status(404).json({ error: 'Travel expense not found' });
-    }
-
-    // Check if user owns this expense
-    if (!isOwner(expense, req.user)) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    if (!isEditableByOfficial(expense.state)) {
-      return res.status(400).json({
-        error: 'Only draft or rejected reports can be submitted.'
-      });
-    }
-
-    // Validate that report has expense items
-    if (!expense.expenses || expense.expenses.length === 0) {
-      return res.status(400).json({ 
-        error: 'Cannot submit expense report without expense items' 
-      });
-    }
-
-    // Update state to 'Predano'
-    expense.state = 'Predano';
-    // The submittedAt timestamp will be set automatically by the pre-save middleware
-
-    const updatedExpense = await expense.save();
-    await updatedExpense.populate('userId', 'name surname');
-    await updatedExpense.populate('reviewedBy', 'name surname');
-
-    res.json(updatedExpense);
-  } catch (error) {
-    console.error('Submit travel expense error:', error);
-    res.status(500).json({ 
-      error: 'Failed to submit travel expense report',
-      details: error.message 
-    });
+    console.error('Delete travel expense error:', error);
+    res.status(500).json({ error: 'Brisanje putnog naloga nije uspjelo.' });
   }
 });
 
 router.patch('/:id/review', requireRole(['Admin', 'Povjerenik natjecanja']), async (req, res) => {
   try {
-    const expense = await TravelExpense.findById(req.params.id);
+    const expense = await TravelExpense.findById(req.params.id)
+      .populate('gameId', 'homeTeam awayTeam date time venue competition');
 
     if (!expense) {
-      return res.status(404).json({ error: 'Travel expense not found' });
+      return res.status(404).json({ error: 'Putni nalog nije pronađen.' });
     }
-
-    if (!(await canReviewTravelExpense(req.user, expense))) {
-      return res.status(403).json({ error: 'Access denied' });
+    if (!canReviewTravelExpense(req.user, expense)) {
+      return res.status(403).json({ error: 'Pristup odbijen.' });
     }
-
     if (expense.state !== 'Predano') {
-      return res.status(400).json({
-        error: 'Only submitted reports can be approved or rejected'
-      });
+      return res.status(400).json({ error: 'Pregledati se može samo predani nalog.' });
     }
 
     const { action, reviewComments } = req.body;
@@ -426,79 +346,38 @@ router.patch('/:id/review', requireRole(['Admin', 'Povjerenik natjecanja']), asy
       expense.reviewComments = notes || expense.reviewComments;
     } else if (action === 'reject') {
       if (!notes) {
-        return res.status(400).json({
-          error: 'Notes are required when rejecting a report'
-        });
+        return res.status(400).json({ error: 'Pri odbijanju je obavezna napomena.' });
       }
       expense.state = 'Odbijeno';
       expense.reviewComments = notes;
     } else {
-      return res.status(400).json({ error: 'Action must be approve or reject' });
+      return res.status(400).json({ error: 'Akcija mora biti approve ili reject.' });
     }
 
     expense.reviewedAt = new Date();
     expense.reviewedBy = req.user._id;
-
     const ownerUserId = expense.userId;
-    const updatedExpense = await expense.save();
-    await updatedExpense.populate('userId', 'name surname');
-    await updatedExpense.populate('reviewedBy', 'name surname');
+    const updated = await expense.save();
+    await updated.populate('userId', 'name surname');
+    await updated.populate('reviewedBy', 'name surname');
+    await updated.populate('gameId', 'homeTeam awayTeam date time venue competition');
 
+    const game = updated.gameId;
     try {
       await Notification.createExpenseReviewNotification(ownerUserId, expense._id, {
         approved: action === 'approve',
-        type: expense.type,
-        month: expense.month,
-        year: expense.year,
+        homeTeam: game?.homeTeam,
+        awayTeam: game?.awayTeam,
         notes: action === 'reject' ? notes : ''
       });
     } catch (notifyError) {
       console.error('Expense review notification error:', notifyError);
     }
 
-    res.json(updatedExpense);
+    res.json(updated);
   } catch (error) {
     console.error('Review travel expense error:', error);
-    res.status(500).json({ error: 'Failed to review travel expense report' });
-  }
-});
-
-// DELETE - Remove expense item from a travel expense report
-router.delete('/:id/expenses/:expenseId', async (req, res) => {
-  try {
-    const expense = await TravelExpense.findById(req.params.id);
-
-    if (!expense) {
-      return res.status(404).json({ error: 'Travel expense not found' });
-    }
-
-    // Check if user owns this expense
-    if (!isOwner(expense, req.user) && !isAdminUser(req.user)) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    if (!isEditableByOfficial(expense.state)) {
-      return res.status(400).json({
-        error: 'Cannot delete items from submitted or approved reports.'
-      });
-    }
-
-    // Find and remove the expense item
-    const expenseItem = expense.expenses.id(req.params.expenseId);
-    if (!expenseItem) {
-      return res.status(404).json({ error: 'Stavka nije pronađena' });
-    }
-
-    // Use pull method instead of remove
-    expense.expenses.pull({ _id: req.params.expenseId });
-    const updatedExpense = await expense.save();
-    await updatedExpense.populate('userId', 'name surname');
-
-    res.json(updatedExpense);
-  } catch (error) {
-    console.error('Remove expense item error:', error);
-    console.error('Error details:', error.message);
-    res.status(500).json({ error: 'Failed to remove expense item', details: error.message });
+    res.status(500).json({ error: 'Pregled putnog naloga nije uspio.' });
   }
 });
 

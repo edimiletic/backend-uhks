@@ -9,7 +9,6 @@ const {
   canManageCalendar,
   canSeeAllGames,
   canAssignGameRole,
-  isTopProfessionalCompetition,
   isWithinNominationCap,
   getGamesVisibilityFilter,
   canAccessGame,
@@ -20,7 +19,9 @@ const {
   shouldReceiveAssignmentResponse,
   timesOverlap,
   isBlockingScheduleConflict,
-  userHasRoleForCompetition
+  userHasRoleForCompetition,
+  cannotNominateSelf,
+  canonicalCompetition
 } = require('../config/roles');
 const { assertCompetitionHasCommissioners } = require('../utils/commissionerCoverage');
 const { isPlayedGame } = require('../utils/nominationExpiry');
@@ -115,6 +116,32 @@ router.post('/', async (req, res) => {
     
     // Populate creator information
     await savedGame.populate('createdBy', 'name surname');
+
+    try {
+      const officialsRole = 'Povjerenik za službene osobe';
+      const officials = await User.find(commissionerRoleQuery(officialsRole)).select('_id role roles');
+      const coveredCompetition = canonicalCompetition(savedGame.competition);
+      const gameDetails = {
+        homeTeam: savedGame.homeTeam,
+        awayTeam: savedGame.awayTeam,
+        competition: savedGame.competition,
+        date: savedGame.date.toLocaleDateString('hr-HR'),
+        time: savedGame.time,
+        venue: savedGame.venue
+      };
+
+      for (const official of officials) {
+        if (String(official._id) === String(req.user._id)) {
+          continue;
+        }
+        if (!userHasRoleForCompetition(official, officialsRole, coveredCompetition)) {
+          continue;
+        }
+        await Notification.createGameCreatedNotification(official._id, savedGame._id, gameDetails);
+      }
+    } catch (notificationError) {
+      console.error('Error creating game created notifications:', notificationError);
+    }
 
     res.status(201).json(savedGame);
   } catch (error) {
@@ -385,6 +412,10 @@ router.post('/:id/assign-referee', async (req, res) => {
       return res.status(403).json({ error: 'Access denied for this nomination role.' });
     }
 
+    if (cannotNominateSelf(req.user, userId)) {
+      return res.status(400).json({ error: 'Ne možete nominirati sami sebe.' });
+    }
+
     if (!userId || !role) {
       return res.status(400).json({ error: 'Missing required fields: userId, role' });
     }
@@ -398,11 +429,7 @@ router.post('/:id/assign-referee', async (req, res) => {
       return res.status(400).json({ error: 'User role does not match assignment role' });
     }
 
-    if (role === 'Kontrolor' && !isTopProfessionalCompetition(game.competition)) {
-      return res.status(400).json({ error: 'Kontrolor se dodjeljuje samo na vrhunskim natjecanjima.' });
-    }
-
-    if (role !== 'Pomoćni Sudac' && !isWithinNominationCap(user, game.competition, role)) {
+    if (!isWithinNominationCap(user, game.competition, role)) {
       return res.status(400).json({
         error: 'Ova osoba ne može biti nominirana iznad svoje najviše lige.'
       });
@@ -475,9 +502,7 @@ router.post('/:id/assign-referee', async (req, res) => {
           higherCompetition: game.competition
         });
 
-        const commissionerRole = released.role === 'Pomoćni Sudac'
-          ? 'Povjerenik za pomoćne suce'
-          : 'Povjerenik za službene osobe';
+        const commissionerRole = 'Povjerenik za službene osobe';
         const commissioners = await User.find({
           $or: [
             { role: commissionerRole },
@@ -510,7 +535,7 @@ router.post('/:id/assign-referee', async (req, res) => {
     if (!assignmentPosition) {
       assignmentPosition = game.getNextAvailablePosition(role);
       if (!assignmentPosition) {
-        const maxPositions = { 'Sudac': 3, 'Delegat': 1, 'Pomoćni Sudac': 3, 'Kontrolor': 1 };
+        const maxPositions = { 'Sudac': 3, 'Delegat': 1, 'Kontrolor': 1 };
         return res.status(400).json({ 
           error: `No available positions for role ${role}. Maximum ${maxPositions[role]} allowed.` 
         });
@@ -636,12 +661,12 @@ router.get('/:id/referee-summary', async (req, res) => {
             respondedAt: a.respondedAt
           }))
       },
-      'Pomoćni Sudac': {
-        ...summary['Pomoćni Sudac'],
-        maxAllowed: 3,
-        minRequired: 2,
+      Kontrolor: {
+        ...summary.Kontrolor,
+        maxAllowed: 1,
+        minRequired: 0,
         assignments: game.refereeAssignments
-          .filter(a => a.role === 'Pomoćni Sudac')
+          .filter(a => a.role === 'Kontrolor')
           .map(a => ({
             position: a.position,
             user: a.userId,
@@ -704,11 +729,7 @@ router.patch('/:id/respond-assignment', async (req, res) => {
     // 🎯 CREATE NOTIFICATION FOR ADMIN USERS
     try {
       const recipientQuery = [adminUserQuery()];
-      if (assignment.role === 'Pomoćni Sudac') {
-        recipientQuery.push(commissionerRoleQuery('Povjerenik za pomoćne suce'));
-      } else {
-        recipientQuery.push(commissionerRoleQuery('Povjerenik za službene osobe'));
-      }
+      recipientQuery.push(commissionerRoleQuery('Povjerenik za službene osobe'));
 
       const candidateUsers = await User.find({ $or: recipientQuery });
       const recipientIds = [];
@@ -868,7 +889,7 @@ router.post('/:id/colleague-replacement', async (req, res) => {
       return;
     }
 
-    const canNotifyRoster = ['Sudac', 'Delegat', 'Pomoćni Sudac', 'Kontrolor']
+    const canNotifyRoster = ['Sudac', 'Delegat', 'Kontrolor']
       .some((role) => canAssignGameRole(req.user, role, game.competition));
     if (!canNotifyRoster) {
       return res.status(403).json({ error: 'Access denied.' });

@@ -10,7 +10,6 @@ const basketballGameRoutes = require('./routes/basketballGames');
 const userRoutes = require('./routes/users');
 const examRoutes = require('./routes/exams');
 const notificationRoutes = require('./routes/notification');
-const kontrolaRoutes = require('./routes/kontrola');
 const catalogRoutes = require('./routes/catalog');
 const seedCatalog = require('./scripts/seedCatalog');
 const seedDisplayIds = require('./scripts/seedDisplayIds');
@@ -56,7 +55,6 @@ app.use('/api/basketball-games', basketballGameRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/exams', examRoutes);
 app.use('/api/notifications', notificationRoutes)
-app.use('/api/kontrola', kontrolaRoutes);
 app.use('/api/catalog', catalogRoutes);
 
 

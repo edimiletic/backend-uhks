@@ -61,12 +61,7 @@ const notifyExpiryRecipients = async (game, assignment) => {
     await Notification.createNominationExpiredNotification(officialId, game._id, details);
   }
 
-  const recipientQuery = [adminUserQuery()];
-  if (assignment.role === 'Pomoćni Sudac') {
-    recipientQuery.push(commissionerRoleQuery('Povjerenik za pomoćne suce'));
-  } else {
-    recipientQuery.push(commissionerRoleQuery('Povjerenik za službene osobe'));
-  }
+  const recipientQuery = [adminUserQuery(), commissionerRoleQuery('Povjerenik za službene osobe')];
 
   const candidateUsers = await User.find({ $or: recipientQuery });
   const seen = new Set();

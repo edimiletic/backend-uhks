@@ -2,21 +2,23 @@ const USER_ROLES = [
   'Admin',
   'Sudac',
   'Delegat',
-  'Pomoćni Sudac',
   'Kontrolor',
   'Povjerenik natjecanja',
-  'Povjerenik za službene osobe',
-  'Povjerenik za pomoćne suce'
+  'Povjerenik za službene osobe'
 ];
 
-const GAME_ASSIGNMENT_ROLES = ['Sudac', 'Delegat', 'Pomoćni Sudac', 'Kontrolor'];
+const GAME_ASSIGNMENT_ROLES = ['Sudac', 'Delegat', 'Kontrolor'];
 const COMMISSIONER_ROLES = [
   'Povjerenik natjecanja',
-  'Povjerenik za službene osobe',
-  'Povjerenik za pomoćne suce'
+  'Povjerenik za službene osobe'
+];
+const INCOMPATIBLE_ROLE_PAIRS = [
+  ['Sudac', 'Delegat'],
+  ['Sudac', 'Kontrolor'],
+  ['Delegat', 'Kontrolor'],
+  ['Sudac', 'Povjerenik natjecanja']
 ];
 const OFFICIAL_NOMINATION_ROLES = ['Sudac', 'Delegat', 'Kontrolor'];
-const ASSISTANT_NOMINATION_ROLES = ['Pomoćni Sudac'];
 const ELIGIBLE_OFFICIAL_ROLES = ['Sudac', 'Delegat', 'Kontrolor'];
 
 const ALL_COMPETITIONS = [
@@ -78,14 +80,59 @@ const COMPETITION_RANK = {
   '3X3': 3
 };
 
+const CUP_COSIC = 'KUP «K. ĆOSIĆ»';
+const CUP_MEGLAJ = 'KUP «R. MEGLAJ-RIMAC»';
+const SUPERSPORT_PREMIJER = 'SuperSport Premijer liga';
+const MEN_LEAGUE_COMPETITIONS = [
+  'SuperSport Premijer liga',
+  'FAVBET PREMIJER LIGA',
+  'PRVA MUŠKA LIGA'
+];
+const WOMEN_LEAGUE_COMPETITIONS = ['PREMIJER ŽENSKA LIGA'];
+
 const canonicalCompetition = (competition) =>
   competition === 'FAVBET PREMIJER LIGA' ? 'SuperSport Premijer liga' : (competition || '');
+
+const isSuperSportPremijer = (competition) =>
+  canonicalCompetition(competition) === SUPERSPORT_PREMIJER;
+
+const isCupCosic = (competition) => competition === CUP_COSIC;
+
+const teamHasAnyCompetition = (teamCompetitions, names) =>
+  (teamCompetitions || []).some(
+    (competition) => names.includes(competition) || names.includes(canonicalCompetition(competition))
+  );
+
+const isMenPremierClub = (teamCompetitions) =>
+  teamHasAnyCompetition(teamCompetitions, [SUPERSPORT_PREMIJER, 'FAVBET PREMIJER LIGA']);
+
+const teamEligibleForCompetition = (teamCompetitions, competition) => {
+  if (!competition) return false;
+  const comps = teamCompetitions || [];
+  if (comps.includes(competition) || comps.map(canonicalCompetition).includes(canonicalCompetition(competition))) {
+    return true;
+  }
+  if (competition === CUP_COSIC) {
+    return teamHasAnyCompetition(comps, MEN_LEAGUE_COMPETITIONS);
+  }
+  if (competition === CUP_MEGLAJ) {
+    return teamHasAnyCompetition(comps, WOMEN_LEAGUE_COMPETITIONS);
+  }
+  return false;
+};
+
+const isKontrolorRequired = (competition, homeTeamCompetitions, awayTeamCompetitions) => {
+  if (isSuperSportPremijer(competition)) return true;
+  if (isCupCosic(competition)) {
+    return isMenPremierClub(homeTeamCompetitions) && isMenPremierClub(awayTeamCompetitions);
+  }
+  return false;
+};
 
 const getCompetitionRank = (competition) =>
   COMPETITION_RANK[canonicalCompetition(competition)] || COMPETITION_RANK[competition] || 0;
 
 const isWithinNominationCap = (user, competition, assignmentRole) => {
-  if (assignmentRole === 'Pomoćni Sudac') return true;
   const cap = user && user.najvisaLiga;
   if (!cap) return true;
   return getCompetitionRank(competition) <= getCompetitionRank(cap);
@@ -119,7 +166,7 @@ const getStatisticsRoles = (userOrRole) => {
   ) {
     return GAME_ASSIGNMENT_ROLES.slice();
   }
-  return ['Pomoćni Sudac'];
+  return [];
 };
 
 const getEligibilityCompetitions = (userOrRole) => {
@@ -148,19 +195,6 @@ const assignmentUserId = (assignment) => {
 
 const isActiveAssignment = (assignment) =>
   assignment && assignment.assignmentStatus !== 'Rejected';
-
-const hasKontrolor = (game) =>
-  (game?.refereeAssignments || []).some(
-    (assignment) => assignment.role === 'Kontrolor' && isActiveAssignment(assignment)
-  );
-
-const isAssignedAs = (game, userId, role) =>
-  (game?.refereeAssignments || []).some(
-    (assignment) =>
-      assignment.role === role &&
-      assignmentUserId(assignment) === String(userId) &&
-      isActiveAssignment(assignment)
-  );
 
 const normalizeRoleAssignments = (userOrRole) => {
   if (!userOrRole) return [];
@@ -255,12 +289,8 @@ const canManageCalendar = (userOrRole, competition) =>
 const canNominateOfficials = (userOrRole, competition) =>
   userHasRoleForCompetition(userOrRole, 'Povjerenik za službene osobe', competition) || isAdminUser(userOrRole);
 
-const canNominateAssistants = (userOrRole, competition) =>
-  userHasRoleForCompetition(userOrRole, 'Povjerenik za pomoćne suce', competition) || isAdminUser(userOrRole);
-
 const isOfficialOnCompetitions = (user, competitions) => {
   if (!user || !competitions?.length) return false;
-  if (userHasRole(user, 'Pomoćni Sudac')) return true;
   return competitions.some((competition) => isEligibleForCompetition(user, competition));
 };
 
@@ -270,9 +300,8 @@ const getSupervisedAbsencePersonalCodes = (viewer, users) => {
   if (viewer?.personalCode) codes.add(viewer.personalCode);
 
   const watchesOfficials = userHasRole(viewer, 'Povjerenik za službene osobe');
-  const watchesAssistants = userHasRole(viewer, 'Povjerenik za pomoćne suce');
   const watchesCalendar = userHasRole(viewer, 'Povjerenik natjecanja');
-  if (!watchesOfficials && !watchesAssistants && !watchesCalendar) {
+  if (!watchesOfficials && !watchesCalendar) {
     return [...codes];
   }
 
@@ -287,9 +316,6 @@ const getSupervisedAbsencePersonalCodes = (viewer, users) => {
       if (officialList.some((competition) => isEligibleForCompetition(user, competition))) {
         codes.add(user.personalCode);
       }
-    }
-    if (watchesAssistants && userHasRole(user, 'Pomoćni Sudac')) {
-      codes.add(user.personalCode);
     }
     if (
       watchesCalendar &&
@@ -315,8 +341,7 @@ const canAccessGame = (user, game) => {
   if (isAssigned) return true;
   return (
     canManageCalendar(user, game.competition) ||
-    canNominateOfficials(user, game.competition) ||
-    canNominateAssistants(user, game.competition)
+    canNominateOfficials(user, game.competition)
   );
 };
 
@@ -341,25 +366,7 @@ const canAssignGameRole = (userOrRole, assignmentRole, competition) => {
   if (canNominateOfficials(userOrRole, competition) && OFFICIAL_NOMINATION_ROLES.includes(assignmentRole)) {
     return true;
   }
-  if (canNominateAssistants(userOrRole, competition) && ASSISTANT_NOMINATION_ROLES.includes(assignmentRole)) {
-    return true;
-  }
   return false;
-};
-
-const canWriteKontrola = (user, game) => {
-  if (!user) return false;
-  if (isAdminUser(user)) return true;
-  if (hasKontrolor(game)) {
-    return isAssignedAs(game, user._id, 'Kontrolor');
-  }
-  return userHasRole(user, 'Delegat') && isAssignedAs(game, user._id, 'Delegat');
-};
-
-const canViewFullKontrola = (user, game) => {
-  if (!user || !game) return false;
-  if (isAdminUser(user) || canWriteKontrola(user, game)) return true;
-  return canManageCalendar(user, game.competition) || canNominateOfficials(user, game.competition);
 };
 
 const isTopProfessionalCompetition = (competition) =>
@@ -388,21 +395,41 @@ const commissionerRoleQuery = (roleName) => ({
 
 const shouldReceiveAssignmentResponse = (user, assignmentRole, competition) => {
   if (isAdminUser(user)) return true;
-  if (assignmentRole === 'Pomoćni Sudac') {
-    return userHasRoleForCompetition(user, 'Povjerenik za pomoćne suce', competition);
-  }
   if (OFFICIAL_NOMINATION_ROLES.includes(assignmentRole)) {
     return userHasRoleForCompetition(user, 'Povjerenik za službene osobe', competition);
   }
   return false;
 };
 
+const roleNameList = (userOrRoles) => {
+  if (Array.isArray(userOrRoles) && (userOrRoles.length === 0 || typeof userOrRoles[0] === 'string')) {
+    return [...new Set(userOrRoles)];
+  }
+  return getRoleNames(userOrRoles);
+};
+
+const incompatibleRolesMessage = (userOrRoles) => {
+  const names = roleNameList(userOrRoles);
+  for (const [left, right] of INCOMPATIBLE_ROLE_PAIRS) {
+    if (names.includes(left) && names.includes(right)) {
+      return `Korisnik ne može istovremeno imati uloge ${left} i ${right}.`;
+    }
+  }
+  return null;
+};
+
+const cannotNominateSelf = (actor, assigneeId) => {
+  if (!actor || !assigneeId || isAdminUser(actor)) return false;
+  const actorId = String(actor._id || actor.id || '');
+  return !!actorId && actorId === String(assigneeId);
+};
+
 module.exports = {
   USER_ROLES,
   GAME_ASSIGNMENT_ROLES,
   COMMISSIONER_ROLES,
+  INCOMPATIBLE_ROLE_PAIRS,
   OFFICIAL_NOMINATION_ROLES,
-  ASSISTANT_NOMINATION_ROLES,
   ELIGIBLE_OFFICIAL_ROLES,
   REFEREE_RANKS,
   TOP_PROFESSIONAL_COMPETITIONS,
@@ -426,16 +453,20 @@ module.exports = {
   getManagedCompetitions,
   canManageCalendar,
   canNominateOfficials,
-  canNominateAssistants,
   getSupervisedAbsencePersonalCodes,
   canSeeAllGames,
   canAccessGame,
   getGamesVisibilityFilter,
   canAssignGameRole,
-  canWriteKontrola,
-  canViewFullKontrola,
-  hasKontrolor,
   isTopProfessionalCompetition,
+  CUP_COSIC,
+  CUP_MEGLAJ,
+  SUPERSPORT_PREMIJER,
+  isSuperSportPremijer,
+  isCupCosic,
+  isMenPremierClub,
+  teamEligibleForCompetition,
+  isKontrolorRequired,
   gameAssignmentRoleQuery,
   adminUserQuery,
   commissionerRoleQuery,
@@ -443,5 +474,7 @@ module.exports = {
   COMPETITION_RANK,
   getCompetitionRank,
   isBlockingScheduleConflict,
-  timesOverlap
+  timesOverlap,
+  incompatibleRolesMessage,
+  cannotNominateSelf
 };

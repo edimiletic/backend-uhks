@@ -4,7 +4,8 @@ const {
   STORED_COMPETITIONS,
   REFEREE_RANKS,
   normalizeRoleAssignments,
-  pickPrimaryRole
+  pickPrimaryRole,
+  incompatibleRolesMessage
 } = require('../config/roles');
 
 const roleAssignmentSchema = new mongoose.Schema({
@@ -96,6 +97,10 @@ const userSchema = new mongoose.Schema({
 
 userSchema.pre('validate', function syncRoles() {
   const assignments = normalizeRoleAssignments(this);
+  const conflict = incompatibleRolesMessage(assignments.map((assignment) => assignment.name));
+  if (conflict) {
+    this.invalidate('roles', conflict);
+  }
   this.roles = assignments;
   this.role = pickPrimaryRole(assignments);
 });

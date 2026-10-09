@@ -13,14 +13,14 @@ const notificationSchema = new mongoose.Schema({
     enum: [
       'GAME_ASSIGNMENT',
       'ASSIGNMENT_RESPONSE',
-      'KONTROLA_RECEIVED',
       'ASSIGNMENT_RELEASED',
       'GAME_SCHEDULE_CHANGED',
       'ASSIGNMENT_REMOVED',
       'COLLEAGUE_REPLACED',
       'NOMINATION_EXPIRED',
       'EXPENSE_APPROVED',
-      'EXPENSE_REJECTED'
+      'EXPENSE_REJECTED',
+      'GAME_CREATED'
     ],
     required: true
   },
@@ -36,11 +36,6 @@ const notificationSchema = new mongoose.Schema({
   },
   assignmentId: {
     type: String, // Can be the assignment _id from the game's refereeAssignments array
-    index: true
-  },
-  kontrolaId: { // ← Add this new field
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Kontrola',
     index: true
   },
   travelExpenseId: {
@@ -78,59 +73,6 @@ notificationSchema.virtual('timeAgo').get(function() {
     return `Prije ${days} dana`;
   }
 });
-
-// ← ADD THIS NEW STATIC METHOD for kontrola notifications
-notificationSchema.statics.createKontrolaNotification = async function(userId, gameId, kontrolaId, gameDetails, refereeName) {
-  try {
-    const message = `📋 Nova kontrola dostupna za utakmicu: ${gameDetails.homeTeam} vs ${gameDetails.awayTeam} (${gameDetails.date})`;
-   
-    const notification = await this.create({
-      userId,
-      type: 'KONTROLA_RECEIVED',
-      message,
-      gameId,
-      kontrolaId,
-      isRead: false
-    });
-
-    console.log(`✅ Kontrola notification created for referee ${userId} (${refereeName})`);
-    return notification;
-  } catch (error) {
-    console.error('❌ Error creating kontrola notification:', error);
-    throw error;
-  }
-};
-
-// ← ADD THIS NEW STATIC METHOD for bulk kontrola notifications
-notificationSchema.statics.createBulkKontrolaNotifications = async function(refereeGrades, gameId, kontrolaId, gameDetails) {
-  try {
-    if (!Array.isArray(refereeGrades) || refereeGrades.length === 0) {
-      console.warn('⚠️ No referee grades provided for kontrola notification creation');
-      return [];
-    }
-
-    const message = `📋 Nova kontrola dostupna za utakmicu: ${gameDetails.homeTeam} vs ${gameDetails.awayTeam} (${gameDetails.date})`;
-    
-    const notifications = refereeGrades.map(refereeGrade => ({
-      userId: refereeGrade.refereeId,
-      type: 'KONTROLA_RECEIVED',
-      message,
-      gameId,
-      kontrolaId,
-      isRead: false,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }));
-
-    const createdNotifications = await this.insertMany(notifications);
-    console.log(`✅ ${createdNotifications.length} kontrola notifications created`);
-    
-    return createdNotifications;
-  } catch (error) {
-    console.error('❌ Error creating bulk kontrola notifications:', error);
-    throw error;
-  }
-};
 
 notificationSchema.statics.createAssignmentReleasedNotification = async function(userId, gameId, gameDetails) {
   try {
@@ -265,12 +207,11 @@ notificationSchema.statics.createColleagueReplacedNotifications = async function
 notificationSchema.statics.createExpenseReviewNotification = async function(userId, travelExpenseId, details) {
   try {
     const approved = details?.approved === true;
-    const period = `${details?.month || ''} ${details?.year || ''}`.trim();
-    const reportType = details?.type || 'putno izvješće';
+    const match = [details?.homeTeam, details?.awayTeam].filter(Boolean).join(' vs ');
     const notes = (details?.notes || '').trim();
     const message = approved
-      ? `Vaše putno izvješće (${reportType}, ${period}) je odobreno.`
-      : `Vaše putno izvješće (${reportType}, ${period}) je odbijeno.${notes ? ` Napomena: ${notes}` : ''}`;
+      ? `Vaš putni nalog${match ? ` (${match})` : ''} je odobren.`
+      : `Vaš putni nalog${match ? ` (${match})` : ''} je odbijen.${notes ? ` Napomena: ${notes}` : ''}`;
 
     return this.create({
       userId,
@@ -281,6 +222,22 @@ notificationSchema.statics.createExpenseReviewNotification = async function(user
     });
   } catch (error) {
     console.error('Error creating expense review notification:', error);
+    throw error;
+  }
+};
+
+notificationSchema.statics.createGameCreatedNotification = async function(userId, gameId, gameDetails) {
+  try {
+    const message = `Kreirana je utakmica ${gameDetails.homeTeam} vs ${gameDetails.awayTeam} (${gameDetails.competition}, ${gameDetails.date} u ${gameDetails.time}, ${gameDetails.venue}). Potrebno je poslati nominacije.`;
+    return this.create({
+      userId,
+      type: 'GAME_CREATED',
+      message,
+      gameId,
+      isRead: false
+    });
+  } catch (error) {
+    console.error('Error creating game created notification:', error);
     throw error;
   }
 };
@@ -497,7 +454,6 @@ notificationSchema.pre('save', function(next) {
   next();
 });
 
-// ← UPDATE the pre-save validation to include kontrola
 notificationSchema.pre('save', function(next) {
   // Validate that game assignment notifications have gameId
   if (this.type === 'GAME_ASSIGNMENT' && !this.gameId) {
@@ -507,11 +463,6 @@ notificationSchema.pre('save', function(next) {
   // Validate that assignment response notifications have gameId
   if (this.type === 'ASSIGNMENT_RESPONSE' && !this.gameId) {
     return next(new Error('ASSIGNMENT_RESPONSE notifications must have a gameId'));
-  }
-
-  // ← ADD THIS validation for kontrola notifications
-  if (this.type === 'KONTROLA_RECEIVED' && (!this.gameId || !this.kontrolaId)) {
-    return next(new Error('KONTROLA_RECEIVED notifications must have both gameId and kontrolaId'));
   }
 
   if (this.type === 'ASSIGNMENT_RELEASED' && !this.gameId) {
@@ -532,6 +483,10 @@ notificationSchema.pre('save', function(next) {
 
   if (this.type === 'NOMINATION_EXPIRED' && !this.gameId) {
     return next(new Error('NOMINATION_EXPIRED notifications must have a gameId'));
+  }
+
+  if (this.type === 'GAME_CREATED' && !this.gameId) {
+    return next(new Error('GAME_CREATED notifications must have a gameId'));
   }
 
   if ((this.type === 'EXPENSE_APPROVED' || this.type === 'EXPENSE_REJECTED') && !this.travelExpenseId) {

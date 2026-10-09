@@ -24,20 +24,20 @@ const TEAMS = [
   { name: 'ŽKK Zadar', competitions: ['PREMIJER ŽENSKA LIGA', 'KUP «R. MEGLAJ-RIMAC»'] },
   { name: 'ŽKK Zadar Plus', competitions: ['PREMIJER ŽENSKA LIGA', 'KUP «R. MEGLAJ-RIMAC»'] },
 
-  { name: 'KK Aleta Puntamika', competitions: ['PRVA MUŠKA LIGA'] },
-  { name: 'KK Crikvenica', competitions: ['PRVA MUŠKA LIGA'] },
-  { name: 'KK Đakovo', competitions: ['PRVA MUŠKA LIGA'] },
-  { name: 'KK Gorica', competitions: ['PRVA MUŠKA LIGA'] },
-  { name: 'KK Hermes Analitica', competitions: ['PRVA MUŠKA LIGA'] },
-  { name: 'KK Jazine Arbanasi', competitions: ['PRVA MUŠKA LIGA'] },
-  { name: 'KK Marsonia', competitions: ['PRVA MUŠKA LIGA'] },
-  { name: 'HAKK Mladost', competitions: ['PRVA MUŠKA LIGA'] },
-  { name: 'KK Novi Zagreb', competitions: ['PRVA MUŠKA LIGA'] },
-  { name: 'KK Omiš-Čagalj Tours', competitions: ['PRVA MUŠKA LIGA'] },
-  { name: 'KK Radnik Križevci', competitions: ['PRVA MUŠKA LIGA'] },
-  { name: 'KK Ribola Kaštela', competitions: ['PRVA MUŠKA LIGA'] },
-  { name: 'GKK Šibenka', competitions: ['PRVA MUŠKA LIGA'] },
-  { name: 'KK Zagreb', competitions: ['PRVA MUŠKA LIGA'] }
+  { name: 'KK Aleta Puntamika', competitions: ['PRVA MUŠKA LIGA', 'KUP «K. ĆOSIĆ»'] },
+  { name: 'KK Crikvenica', competitions: ['PRVA MUŠKA LIGA', 'KUP «K. ĆOSIĆ»'] },
+  { name: 'KK Đakovo', competitions: ['PRVA MUŠKA LIGA', 'KUP «K. ĆOSIĆ»'] },
+  { name: 'KK Gorica', competitions: ['PRVA MUŠKA LIGA', 'KUP «K. ĆOSIĆ»'] },
+  { name: 'KK Hermes Analitica', competitions: ['PRVA MUŠKA LIGA', 'KUP «K. ĆOSIĆ»'] },
+  { name: 'KK Jazine Arbanasi', competitions: ['PRVA MUŠKA LIGA', 'KUP «K. ĆOSIĆ»'] },
+  { name: 'KK Marsonia', competitions: ['PRVA MUŠKA LIGA', 'KUP «K. ĆOSIĆ»'] },
+  { name: 'HAKK Mladost', competitions: ['PRVA MUŠKA LIGA', 'KUP «K. ĆOSIĆ»'] },
+  { name: 'KK Novi Zagreb', competitions: ['PRVA MUŠKA LIGA', 'KUP «K. ĆOSIĆ»'] },
+  { name: 'KK Omiš-Čagalj Tours', competitions: ['PRVA MUŠKA LIGA', 'KUP «K. ĆOSIĆ»'] },
+  { name: 'KK Radnik Križevci', competitions: ['PRVA MUŠKA LIGA', 'KUP «K. ĆOSIĆ»'] },
+  { name: 'KK Ribola Kaštela', competitions: ['PRVA MUŠKA LIGA', 'KUP «K. ĆOSIĆ»'] },
+  { name: 'GKK Šibenka', competitions: ['PRVA MUŠKA LIGA', 'KUP «K. ĆOSIĆ»'] },
+  { name: 'KK Zagreb', competitions: ['PRVA MUŠKA LIGA', 'KUP «K. ĆOSIĆ»'] }
 ];
 
 const VENUES = [

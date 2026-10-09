@@ -52,7 +52,7 @@ const basketballGameSchema = new mongoose.Schema({
     },
     role: {
       type: String,
-      enum: ['Sudac', 'Delegat', 'Pomoćni Sudac', 'Kontrolor'],
+      enum: ['Sudac', 'Delegat', 'Kontrolor'],
       required: true
     },
     position: {
@@ -140,7 +140,6 @@ basketballGameSchema.virtual('refereeCount').get(function() {
   const counts = {
     Sudac: 0,
     Delegat: 0,
-    'Pomoćni Sudac': 0,
     Kontrolor: 0
   };
   
@@ -187,6 +186,15 @@ basketballGameSchema.pre('save', function(next) {
   next();
 });
 
+basketballGameSchema.pre('validate', function(next) {
+  if (Array.isArray(this.refereeAssignments)) {
+    this.refereeAssignments = this.refereeAssignments.filter(
+      (assignment) => assignment && assignment.role !== 'Pomoćni Sudac'
+    );
+  }
+  next();
+});
+
 // Validate referee assignments
 basketballGameSchema.pre('save', function(next) {
   if (!this.refereeAssignments || !Array.isArray(this.refereeAssignments)) {
@@ -215,17 +223,12 @@ basketballGameSchema.pre('save', function(next) {
     }
   });
   
-  // Check limits: 2-3 Sudac, 0-1 Delegat, 2-3 Pomoćni Sudac
   if (roleCounts['Sudac'] > 3) {
     next(new Error('Maximum 3 Sudac allowed per game'));
     return;
   }
   if (roleCounts['Delegat'] > 1) {
     next(new Error('Maximum 1 Delegat allowed per game'));
-    return;
-  }
-  if (roleCounts['Pomoćni Sudac'] > 3) {
-    next(new Error('Maximum 3 Pomoćni Sudac allowed per game'));
     return;
   }
   if (roleCounts['Kontrolor'] > 1) {
@@ -263,7 +266,6 @@ basketballGameSchema.methods.getAvailablePositions = function(role) {
   const maxPositions = {
     'Sudac': 3,
     'Delegat': 1,
-    'Pomoćni Sudac': 3,
     'Kontrolor': 1
   };
   
@@ -312,7 +314,6 @@ basketballGameSchema.methods.getRefereeAssignmentSummary = function() {
   const summary = {
     Sudac: { assigned: 0, accepted: 0, positions: [] },
     Delegat: { assigned: 0, accepted: 0, positions: [] },
-    'Pomoćni Sudac': { assigned: 0, accepted: 0, positions: [] },
     Kontrolor: { assigned: 0, accepted: 0, positions: [] }
   };
   

@@ -4,6 +4,7 @@ const router = express.Router();
 const { QuestionBank, Exam, ExamAttempt } = require('../models/Exams');
 const User = require('../models/User');
 const authenticateUser = require('../middleware/authMiddleware');
+const { isAdminUser } = require('../config/roles');
 
 // Apply authentication middleware to all routes
 router.use(authenticateUser);
@@ -148,7 +149,7 @@ router.delete('/attempts/:id', async (req, res) => {
     }
 
     // Users can only delete their own attempts, admins can delete any
-    if (req.user.role !== 'Admin' && attempt.userId.toString() !== req.user._id.toString()) {
+    if (!isAdminUser(req.user) && attempt.userId.toString() !== req.user._id.toString()) {
       return res.status(403).json({ error: 'Access denied. You can only delete your own attempts.' });
     }
 
@@ -172,7 +173,7 @@ router.get('/attempts/:id/review', async (req, res) => {
     }
 
     // Users can only view their own attempts, admins can view any
-    if (req.user.role !== 'Admin' && attempt.userId._id.toString() !== req.user._id.toString()) {
+    if (!isAdminUser(req.user) && attempt.userId._id.toString() !== req.user._id.toString()) {
       return res.status(403).json({ error: 'Access denied. You can only review your own attempts.' });
     }
 
@@ -280,7 +281,7 @@ router.post('/submit', async (req, res) => {
 // GET - Get all questions in bank (Admin only)
 router.get('/questions', async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
+    if (!isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -295,7 +296,7 @@ router.get('/questions', async (req, res) => {
 // POST - Add question to bank (Admin only)
 router.post('/questions', async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
+    if (!isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -325,7 +326,7 @@ router.post('/questions', async (req, res) => {
 // PUT - Update question in bank (Admin only)
 router.put('/questions/:id', async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
+    if (!isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -352,7 +353,7 @@ router.put('/questions/:id', async (req, res) => {
 // DELETE - Delete question from bank (Admin only)
 router.delete('/questions/:id', async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
+    if (!isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -374,7 +375,7 @@ router.delete('/questions/:id', async (req, res) => {
 // GET - Get all exam attempts (Admin only)
 router.get('/attempts/all', async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
+    if (!isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 
@@ -393,7 +394,7 @@ router.get('/attempts/all', async (req, res) => {
 // GET - Get question bank statistics (Admin only)
 router.get('/stats', async (req, res) => {
   try {
-    if (req.user.role !== 'Admin') {
+    if (!isAdminUser(req.user)) {
       return res.status(403).json({ error: 'Access denied. Admin role required.' });
     }
 

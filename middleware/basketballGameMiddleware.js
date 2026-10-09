@@ -1,7 +1,7 @@
 // backend/middleware/basketballGameMiddleware.js
 const BasketballGame = require('../models/basketballGame');
 const User = require('../models/User');
-const { ALL_COMPETITIONS, isAdminUser, userHasRole, canAccessGame } = require('../config/roles');
+const { ALL_COMPETITIONS, isAdminUser, userHasRole, canAccessGame, cannotNominateSelf } = require('../config/roles');
 
 // Middleware to validate game creation/update data
 const validateGameData = (req, res, next) => {
@@ -95,14 +95,14 @@ const validateRefereeAssignment = async (req, res, next) => {
     }
 
     // Validate role
-    const validRoles = ['Sudac', 'Delegat', 'Pomoćni Sudac', 'Kontrolor'];
+    const validRoles = ['Sudac', 'Delegat', 'Kontrolor'];
     if (!validRoles.includes(role)) {
       return res.status(400).json({ error: 'Invalid role' });
     }
 
     // Validate position if provided
     if (position !== undefined) {
-      const maxPositions = { 'Sudac': 3, 'Delegat': 1, 'Pomoćni Sudac': 3, 'Kontrolor': 1 };
+      const maxPositions = { 'Sudac': 3, 'Delegat': 1, 'Kontrolor': 1 };
       if (position < 1 || position > maxPositions[role]) {
         return res.status(400).json({ 
           error: `Invalid position. ${role} positions must be between 1 and ${maxPositions[role]}` 
@@ -119,6 +119,10 @@ const validateRefereeAssignment = async (req, res, next) => {
     // Validate that user has the correct role
     if (!userHasRole(user, role)) {
       return res.status(400).json({ error: 'User role does not match assignment role' });
+    }
+
+    if (cannotNominateSelf(req.user, userId)) {
+      return res.status(400).json({ error: 'Ne možete nominirati sami sebe.' });
     }
 
     req.assigneeUser = user;
@@ -178,9 +182,8 @@ const checkSchedulingConflict = async (userId, gameDate, gameTime, excludeGameId
 // Utility function to get referee assignment limits
 const getRefereeAssignmentLimits = () => {
   return {
-    'Sudac': { min: 2, max: 3 },
-    'Delegat': { min: 0, max: 1 },
-    'Pomoćni Sudac': { min: 2, max: 3 },
+    'Sudac': { min: 3, max: 3 },
+    'Delegat': { min: 1, max: 1 },
     'Kontrolor': { min: 0, max: 1 }
   };
 };

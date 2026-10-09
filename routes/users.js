@@ -17,7 +17,8 @@ const {
   getStatisticsRoles,
   getEligibilityCompetitions,
   isEligibleForCompetition,
-  getCompetitionRank
+  getCompetitionRank,
+  incompatibleRolesMessage
 } = require('../config/roles');
 const { assertCoverageAfterChange } = require('../utils/commissionerCoverage');
 const authenticateUser = require('../middleware/authMiddleware');
@@ -154,6 +155,10 @@ router.post('/', async (req, res) => {
     } = req.body;
 
     const assignments = normalizeRoleAssignments({ role, roles });
+    const roleConflict = incompatibleRolesMessage(assignments.map((assignment) => assignment.name));
+    if (roleConflict) {
+      return res.status(400).json({ error: roleConflict });
+    }
 
     const sanitizedRang = String(rang || '').trim();
     const usesNajvisaLiga = assignments.some((assignment) => ELIGIBLE_OFFICIAL_ROLES.includes(assignment.name));
@@ -294,6 +299,10 @@ router.put('/:id', async (req, res) => {
       });
       if (!assignments.length) {
         return res.status(400).json({ error: 'At least one valid role is required' });
+      }
+      const roleConflict = incompatibleRolesMessage(assignments.map((assignment) => assignment.name));
+      if (roleConflict) {
+        return res.status(400).json({ error: roleConflict });
       }
       user.roles = assignments;
       user.role = pickPrimaryRole(assignments);
