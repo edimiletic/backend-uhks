@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const BasketballGame = require('../models/BasketballGames');
 const {
   canSeeAllGames,
   isAdminUser,
@@ -10,6 +11,7 @@ const {
   pickPrimaryRole,
   REFEREE_RANKS,
   ALL_COMPETITIONS,
+  COMMISSIONER_ROLES,
   ELIGIBLE_OFFICIAL_ROLES,
   getRoleNames,
   userHasRole,
@@ -20,8 +22,50 @@ const {
   getCompetitionRank,
   incompatibleRolesMessage
 } = require('../config/roles');
-const { assertCoverageAfterChange } = require('../utils/commissionerCoverage');
+const {
+  assertCoverageAfterChange,
+  takeCommissionerCompetitionsFromOthers
+} = require('../utils/commissionerCoverage');
 const authenticateUser = require('../middleware/authMiddleware');
+
+const officialCapsError = (assignments, rang, najvisaLiga) => {
+  const isSudac = assignments.some((assignment) => assignment.name === 'Sudac');
+  const needsLiga = assignments.some((assignment) => ELIGIBLE_OFFICIAL_ROLES.includes(assignment.name));
+  const sanitizedRang = isSudac ? String(rang || '').trim() : '';
+  const sanitizedNajvisaLiga = needsLiga ? String(najvisaLiga || '').trim() : '';
+
+  if (isSudac && !REFEREE_RANKS.includes(sanitizedRang)) {
+    return { error: 'Za suca obavezno odaberi rang (Državni sudac ili Županijski sudac).' };
+  }
+  if (needsLiga && !ALL_COMPETITIONS.includes(sanitizedNajvisaLiga)) {
+    return {
+      error: isSudac
+        ? 'Za suca obavezno odaberi najvišu ligu.'
+        : 'Za delegata i kontrolora obavezno odaberi najvišu ligu.'
+    };
+  }
+  return { rang: sanitizedRang, najvisaLiga: sanitizedNajvisaLiga };
+};
+
+const commissionerAssignmentsError = (assignments) => {
+  const missingCompetitions = assignments.filter(
+    (assignment) =>
+      COMMISSIONER_ROLES.includes(assignment.name) &&
+      !(assignment.competitions && assignment.competitions.length)
+  );
+  if (missingCompetitions.length) {
+    return 'Povjereniku odaberi barem jedno natjecanje. Sve postojeće lige već imaju povjerenika — dodijeli novo natjecanje ili preuzmi natjecanje s postojećeg povjerenika.';
+  }
+  const invalidCompetition = assignments.some(
+    (assignment) =>
+      COMMISSIONER_ROLES.includes(assignment.name) &&
+      assignment.competitions.some((competition) => !ALL_COMPETITIONS.includes(competition))
+  );
+  if (invalidCompetition) {
+    return 'Natjecanje povjerenika nije valjano.';
+  }
+  return null;
+};
 
 // Apply authentication middleware to all routes
 router.use(authenticateUser);
@@ -160,15 +204,12 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: roleConflict });
     }
 
-    const sanitizedRang = String(rang || '').trim();
-    const usesNajvisaLiga = assignments.some((assignment) => ELIGIBLE_OFFICIAL_ROLES.includes(assignment.name));
-    const sanitizedNajvisaLiga = usesNajvisaLiga ? String(najvisaLiga || '').trim() : '';
-    if (sanitizedRang && !REFEREE_RANKS.includes(sanitizedRang)) {
-      return res.status(400).json({ error: 'Rang mora biti Državni sudac, Županijski sudac ili prazan.' });
+    const caps = officialCapsError(assignments, rang, najvisaLiga);
+    if (caps.error) {
+      return res.status(400).json({ error: caps.error });
     }
-    if (sanitizedNajvisaLiga && !ALL_COMPETITIONS.includes(sanitizedNajvisaLiga)) {
-      return res.status(400).json({ error: 'Najviša liga nije valjana.' });
-    }
+    const sanitizedRang = caps.rang;
+    const sanitizedNajvisaLiga = caps.najvisaLiga;
 
     if (!username || !name || !surname || !email || !password || !birthdate || !personalCode || !address) {
       return res.status(400).json({ error: 'All fields are required' });
@@ -176,6 +217,11 @@ router.post('/', async (req, res) => {
 
     if (!assignments.length) {
       return res.status(400).json({ error: 'At least one valid role is required' });
+    }
+
+    const commissionerError = commissionerAssignmentsError(assignments);
+    if (commissionerError) {
+      return res.status(400).json({ error: commissionerError });
     }
 
     // Check if user already exists
@@ -187,6 +233,12 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ 
         error: 'User with this username, email or personal code already exists' 
       });
+    }
+
+    try {
+      await takeCommissionerCompetitionsFromOthers(null, assignments);
+    } catch (coverageError) {
+      return res.status(coverageError.statusCode || 400).json({ error: coverageError.message });
     }
 
     // Hash the password
@@ -271,20 +323,6 @@ router.put('/:id', async (req, res) => {
     }
 
     // Update fields
-    if (rang !== undefined) {
-      const sanitizedRang = String(rang || '').trim();
-      if (sanitizedRang && !REFEREE_RANKS.includes(sanitizedRang)) {
-        return res.status(400).json({ error: 'Rang mora biti Državni sudac, Županijski sudac ili prazan.' });
-      }
-      user.rang = sanitizedRang;
-    }
-    if (najvisaLiga !== undefined) {
-      const sanitizedNajvisaLiga = String(najvisaLiga || '').trim();
-      if (sanitizedNajvisaLiga && !ALL_COMPETITIONS.includes(sanitizedNajvisaLiga)) {
-        return res.status(400).json({ error: 'Najviša liga nije valjana.' });
-      }
-      user.najvisaLiga = sanitizedNajvisaLiga;
-    }
     if (username) user.username = username;
     if (name) user.name = name;
     if (surname) user.surname = surname;
@@ -304,13 +342,18 @@ router.put('/:id', async (req, res) => {
       if (roleConflict) {
         return res.status(400).json({ error: roleConflict });
       }
-      user.roles = assignments;
-      user.role = pickPrimaryRole(assignments);
+      const commissionerError = commissionerAssignmentsError(assignments);
+      if (commissionerError) {
+        return res.status(400).json({ error: commissionerError });
+      }
       try {
+        await takeCommissionerCompetitionsFromOthers(user._id, assignments);
         await assertCoverageAfterChange(user._id, assignments);
       } catch (coverageError) {
         return res.status(coverageError.statusCode || 400).json({ error: coverageError.message });
       }
+      user.roles = assignments;
+      user.role = pickPrimaryRole(assignments);
     }
 
     // Hash new password if provided
@@ -320,9 +363,16 @@ router.put('/:id', async (req, res) => {
     }
 
     const finalAssignments = normalizeRoleAssignments(user);
-    if (!finalAssignments.some((assignment) => ELIGIBLE_OFFICIAL_ROLES.includes(assignment.name))) {
-      user.najvisaLiga = '';
+    const caps = officialCapsError(
+      finalAssignments,
+      rang !== undefined ? rang : user.rang,
+      najvisaLiga !== undefined ? najvisaLiga : user.najvisaLiga
+    );
+    if (caps.error) {
+      return res.status(400).json({ error: caps.error });
     }
+    user.rang = caps.rang;
+    user.najvisaLiga = caps.najvisaLiga;
 
     const updatedUser = await user.save();
 
@@ -347,24 +397,22 @@ router.delete('/:id', async (req, res) => {
 
     // Prevent admin from deleting themselves
     if (req.params.id === req.user._id.toString()) {
-      return res.status(400).json({ error: 'Cannot delete your own account' });
+      return res.status(400).json({ error: 'Ne možeš obrisati vlastiti račun.' });
     }
 
     const user = await User.findById(req.params.id);
     
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'Korisnik nije pronađen.' });
     }
 
-    // Check if user has any game assignments
-    const BasketballGame = require('../models/basketballGame');
     const assignedGames = await BasketballGame.find({
       'refereeAssignments.userId': req.params.id
-    });
+    }).select('_id').lean();
 
     if (assignedGames.length > 0) {
-      return res.status(400).json({ 
-        error: 'Cannot delete user with existing game assignments. Please remove assignments first.' 
+      return res.status(400).json({
+        error: 'Korisnik ima nominacije na utakmicama. Prvo ukloni dodjele, pa ga obriši.'
       });
     }
 
@@ -375,10 +423,10 @@ router.delete('/:id', async (req, res) => {
     }
 
     await User.deleteOne({ _id: req.params.id });
-    res.json({ message: 'User deleted successfully' });
+    res.json({ message: 'Korisnik je obrisan.' });
   } catch (error) {
     console.error('Delete user error:', error);
-    res.status(500).json({ error: 'Failed to delete user' });
+    res.status(500).json({ error: 'Brisanje korisnika nije uspjelo.' });
   }
 });
 

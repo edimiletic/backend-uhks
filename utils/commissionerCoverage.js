@@ -2,8 +2,17 @@ const User = require('../models/User');
 const {
   ALL_COMPETITIONS,
   COMMISSIONER_ROLES,
-  normalizeRoleAssignments
+  normalizeRoleAssignments,
+  pickPrimaryRole
 } = require('../config/roles');
+
+const holderLabel = (user) =>
+  `${user.name || ''} ${user.surname || ''}`.trim() || user.username || 'postojeći povjerenik';
+
+const expandCompetitions = (assignment) =>
+  assignment.competitions && assignment.competitions.length
+    ? [...assignment.competitions]
+    : [...ALL_COMPETITIONS];
 
 const emptyCoverage = () => {
   const coverage = {};
@@ -67,6 +76,72 @@ const assertCompetitionHasCommissioners = async (competition) => {
   }
 };
 
+const takeCommissionerCompetitionsFromOthers = async (userId, nextAssignments) => {
+  const claimed = [];
+  (nextAssignments || []).forEach((assignment) => {
+    if (!COMMISSIONER_ROLES.includes(assignment.name) || !assignment.competitions?.length) {
+      return;
+    }
+    assignment.competitions.forEach((competition) => {
+      claimed.push({ role: assignment.name, competition });
+    });
+  });
+  if (!claimed.length) {
+    return;
+  }
+
+  const query = {
+    $or: [
+      { role: { $in: COMMISSIONER_ROLES } },
+      { 'roles.name': { $in: COMMISSIONER_ROLES } }
+    ]
+  };
+  if (userId) {
+    query._id = { $ne: userId };
+  }
+
+  const others = await User.find(query);
+  for (const other of others) {
+    const roles = normalizeRoleAssignments(other);
+    let changed = false;
+    const nextRoles = [];
+
+    roles.forEach((otherAssignment) => {
+      if (!COMMISSIONER_ROLES.includes(otherAssignment.name)) {
+        nextRoles.push(otherAssignment);
+        return;
+      }
+      const current = expandCompetitions(otherAssignment);
+      const remaining = current.filter(
+        (competition) =>
+          !claimed.some((item) => item.role === otherAssignment.name && item.competition === competition)
+      );
+      if (remaining.length === current.length) {
+        nextRoles.push(otherAssignment);
+        return;
+      }
+      changed = true;
+      if (remaining.length) {
+        nextRoles.push({ name: otherAssignment.name, competitions: remaining });
+      }
+    });
+
+    if (!changed) {
+      continue;
+    }
+    if (!nextRoles.length) {
+      const error = new Error(
+        `${holderLabel(other)} ostaje u sustavu, ali ovo mu/joj je jedina uloga. Prvo dodijeli drugu ulogu (npr. Sudac) ili ostavi barem jedno natjecanje, pa tek onda preuzmi ligu.`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+    other.roles = nextRoles;
+    other.role = pickPrimaryRole(nextRoles);
+    await other.save();
+  }
+};
+
 const assertCoverageAfterChange = async (userId, nextAssignments, { removing = false } = {}) => {
   const users = await loadCommissionerUsers();
   const simulated = users
@@ -118,5 +193,6 @@ module.exports = {
   buildCoverage,
   missingCommissionerRoles,
   assertCompetitionHasCommissioners,
+  takeCommissionerCompetitionsFromOthers,
   assertCoverageAfterChange
 };
