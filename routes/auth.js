@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const rateLimit = require('express-rate-limit');
+const { normalizeRoleAssignments, pickPrimaryRole } = require('../config/roles');
 
 const JWT_SECRET = require('../config/jwt');
 
@@ -41,7 +42,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       { 
         id: user._id,
         username: user.username,
-        role: user.role 
+        role: pickPrimaryRole(normalizeRoleAssignments(user))
       }, 
       JWT_SECRET, 
       { expiresIn: '24h' }

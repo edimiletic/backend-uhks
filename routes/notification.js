@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const Notification = require('../models/Notification');
 const authenticateUser = require('../middleware/authMiddleware');
-const { isAdminUser } = require('../config/roles');
+const { adminUserQuery, isAdminUser } = require('../config/roles');
 
 // Apply authentication middleware to all routes
 router.use(authenticateUser);
@@ -236,9 +236,7 @@ router.createAssignmentResponseNotification = async (gameId, refereeId, response
     }
 
     // Find all admin users to notify
-    const adminUsers = await User.find({
-      $or: [{ role: 'Admin' }, { 'roles.name': 'Admin' }]
-    });
+    const adminUsers = await User.find(adminUserQuery());
     
     const gameDetails = {
       _id: game._id,

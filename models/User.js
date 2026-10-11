@@ -108,7 +108,7 @@ userSchema.pre('validate', function syncRoles() {
 const serializeUser = (ret) => {
   const assignments = normalizeRoleAssignments(ret);
   ret.roles = assignments;
-  ret.role = ret.role || pickPrimaryRole(assignments);
+  ret.role = pickPrimaryRole(assignments);
   return ret;
 };
 

@@ -1,5 +1,6 @@
 
 const mongoose = require('mongoose');
+const { adminUserQuery } = require('../config/roles');
 
 const notificationSchema = new mongoose.Schema({
   userId: {
@@ -321,9 +322,7 @@ notificationSchema.statics.createBulkAssignmentResponseNotifications = async fun
   try {
     // Get all admin users
     const User = mongoose.model('User');
-    const adminUsers = await User.find({
-      $or: [{ role: 'Admin' }, { 'roles.name': 'Admin' }]
-    }, '_id').lean();
+    const adminUsers = await User.find(adminUserQuery(), '_id').lean();
     
     if (adminUsers.length === 0) {
       console.warn('⚠️ No admin users found for assignment response notifications');

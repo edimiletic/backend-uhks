@@ -7,7 +7,7 @@ const Absence = require('../models/Absence');
 const TravelExpense = require('../models/TravelExpense');
 const Notification = require('../models/Notification');
 const { ExamAttempt } = require('../models/Exams');
-const { ALL_COMPETITIONS } = require('../config/roles');
+const { ALL_COMPETITIONS, isAdminUser } = require('../config/roles');
 
 const PASSWORD = 'Lozinka123!';
 
@@ -85,8 +85,7 @@ newUsers.push(
   fieldOfficial('kontrolor3', 'Darko', 'Škorić', '10000000034', 'Kontrolor', { najvisaLiga: 'SuperSport Premijer liga' })
 );
 
-const isAdmin = (user) =>
-  user.role === 'Admin' || (user.roles || []).some((assignment) => assignment.name === 'Admin');
+const isAdmin = (user) => isAdminUser(user);
 
 async function run() {
   await mongoose.connect(process.env.MONGO_URI, {

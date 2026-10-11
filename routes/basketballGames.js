@@ -505,10 +505,8 @@ router.post('/:id/assign-referee', async (req, res) => {
         const commissionerRole = 'Povjerenik za službene osobe';
         const commissioners = await User.find({
           $or: [
-            { role: commissionerRole },
-            { 'roles.name': commissionerRole },
-            { role: 'Admin' },
-            { 'roles.name': 'Admin' }
+            ...commissionerRoleQuery(commissionerRole).$or,
+            ...adminUserQuery().$or
           ]
         }).select('_id role roles');
 
