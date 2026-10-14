@@ -49,6 +49,14 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  passwordResetTokenHash: {
+    type: String,
+    default: undefined
+  },
+  passwordResetExpires: {
+    type: Date,
+    default: undefined
+  },
   birthdate: {
     type: Date,
     required: true
@@ -109,6 +117,9 @@ const serializeUser = (ret) => {
   const assignments = normalizeRoleAssignments(ret);
   ret.roles = assignments;
   ret.role = pickPrimaryRole(assignments);
+  delete ret.password;
+  delete ret.passwordResetTokenHash;
+  delete ret.passwordResetExpires;
   return ret;
 };
 

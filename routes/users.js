@@ -27,6 +27,10 @@ const {
   takeCommissionerCompetitionsFromOthers
 } = require('../utils/commissionerCoverage');
 const authenticateUser = require('../middleware/authMiddleware');
+const {
+  hashUnusablePassword,
+  issuePasswordReset
+} = require('../utils/passwordReset');
 
 const officialCapsError = (assignments, rang, najvisaLiga) => {
   const isSudac = assignments.some((assignment) => assignment.name === 'Sudac');
@@ -188,7 +192,6 @@ router.post('/', async (req, res) => {
       name,
       surname,
       email,
-      password,
       birthdate,
       personalCode,
       address,
@@ -211,7 +214,7 @@ router.post('/', async (req, res) => {
     const sanitizedRang = caps.rang;
     const sanitizedNajvisaLiga = caps.najvisaLiga;
 
-    if (!username || !name || !surname || !email || !password || !birthdate || !personalCode || !address) {
+    if (!username || !name || !surname || !email || !birthdate || !personalCode || !address) {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
@@ -241,11 +244,8 @@ router.post('/', async (req, res) => {
       return res.status(coverageError.statusCode || 400).json({ error: coverageError.message });
     }
 
-    // Hash the password
-    const bcrypt = require('bcrypt');
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await hashUnusablePassword();
 
-    // Create new user
     const newUser = new User({
       username,
       name,
@@ -262,12 +262,14 @@ router.post('/', async (req, res) => {
     });
 
     await newUser.save();
+    const invite = await issuePasswordReset(newUser);
 
-    // Return user without password
     const userResponse = newUser.toObject();
-    delete userResponse.password;
-
-    res.status(201).json(userResponse);
+    res.status(201).json({
+      ...userResponse,
+      inviteUrl: invite.inviteUrl,
+      inviteExpiresAt: invite.inviteExpiresAt
+    });
   } catch (error) {
     console.error('Create user error:', error);
     res.status(500).json({ error: 'Failed to create user' });
@@ -293,7 +295,6 @@ router.put('/:id', async (req, res) => {
       name,
       surname,
       email,
-      password,
       birthdate,
       personalCode,
       address,
@@ -356,12 +357,6 @@ router.put('/:id', async (req, res) => {
       user.role = pickPrimaryRole(assignments);
     }
 
-    // Hash new password if provided
-    if (password) {
-      const bcrypt = require('bcrypt');
-      user.password = await bcrypt.hash(password, 10);
-    }
-
     const finalAssignments = normalizeRoleAssignments(user);
     const caps = officialCapsError(
       finalAssignments,
@@ -375,15 +370,29 @@ router.put('/:id', async (req, res) => {
     user.najvisaLiga = caps.najvisaLiga;
 
     const updatedUser = await user.save();
-
-    // Return user without password
-    const userResponse = updatedUser.toObject();
-    delete userResponse.password;
-
-    res.json(userResponse);
+    res.json(updatedUser.toObject());
   } catch (error) {
     console.error('Update user error:', error);
     res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+router.post('/:id/password-reset-link', async (req, res) => {
+  try {
+    if (!isAdminUser(req.user)) {
+      return res.status(403).json({ error: 'Access denied. Admin role required.' });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const invite = await issuePasswordReset(user);
+    return res.json(invite);
+  } catch (error) {
+    console.error('Password reset link error:', error);
+    return res.status(500).json({ error: 'Failed to create password reset link' });
   }
 });
 
