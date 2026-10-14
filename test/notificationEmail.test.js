@@ -6,7 +6,7 @@ const {
   linkForNotification,
   bodyForNotification
 } = require('../utils/notificationEmail');
-const { isMailConfigured } = require('../utils/mailer');
+const { isMailConfigured, isRateLimitedError } = require('../utils/mailer');
 
 describe('notificationEmail', () => {
   it('mapira tip obavijesti na predmet maila', () => {
@@ -58,5 +58,13 @@ describe('notificationEmail', () => {
     assert.equal(isMailConfigured(), false);
     if (host !== undefined) process.env.SMTP_HOST = host;
     if (from !== undefined) process.env.MAIL_FROM = from;
+  });
+
+  it('prepoznaje Mailtrap rate limit', () => {
+    assert.equal(
+      isRateLimitedError({ message: 'Data command failed: 550 5.7.0 Too many emails per second.' }),
+      true
+    );
+    assert.equal(isRateLimitedError({ message: 'other' }), false);
   });
 });
