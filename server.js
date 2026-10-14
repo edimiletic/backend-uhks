@@ -62,4 +62,8 @@ app.use('/api/catalog', catalogRoutes);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
+  const { isMailConfigured } = require('./utils/mailer');
+  console.log(isMailConfigured()
+    ? `📧 SMTP spreman (${process.env.SMTP_HOST})`
+    : '📧 SMTP nije konfiguriran — mailovi se ne šalju');
 });

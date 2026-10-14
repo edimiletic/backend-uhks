@@ -35,10 +35,16 @@ const issuePasswordReset = async (user) => {
   user.passwordResetTokenHash = tokenHash;
   user.passwordResetExpires = expiresAt;
   await user.save();
-  return {
+  const invite = {
     inviteUrl: resetUrlForToken(token),
     inviteExpiresAt: expiresAt.toISOString()
   };
+  try {
+    require('./notificationEmail').queueInviteEmail(user, invite.inviteUrl);
+  } catch (error) {
+    console.error('Invite email queue failed:', error.message);
+  }
+  return invite;
 };
 
 const clearPasswordReset = (user) => {

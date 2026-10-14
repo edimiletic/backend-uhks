@@ -1,6 +1,7 @@
 
 const mongoose = require('mongoose');
 const { adminUserQuery } = require('../config/roles');
+const { queueNotificationEmail } = require('../utils/notificationEmail');
 
 const notificationSchema = new mongoose.Schema({
   userId: {
@@ -495,9 +496,13 @@ notificationSchema.pre('save', function(next) {
   next();
 });
 
-// Post-save middleware for logging
 notificationSchema.post('save', function(doc) {
   console.log(`📧 Notification saved: ${doc.type} for user ${doc.userId}`);
+  queueNotificationEmail(doc);
+});
+
+notificationSchema.post('insertMany', function(docs) {
+  (docs || []).forEach((doc) => queueNotificationEmail(doc));
 });
 
 // Ensure virtual fields are serialized
