@@ -247,7 +247,7 @@ notificationSchema.statics.createGameCreatedNotification = async function(userId
 // Static method to create game assignment notification
 notificationSchema.statics.createGameAssignmentNotification = async function(userId, gameId, gameDetails) {
   try {
-    const message = `🏀 Nova nominacija: ${gameDetails.homeTeam} vs ${gameDetails.awayTeam}, ${gameDetails.date} u ${gameDetails.time} (${gameDetails.venue})`;
+    const message = `Nova nominacija: ${gameDetails.homeTeam} vs ${gameDetails.awayTeam}, ${gameDetails.date} u ${gameDetails.time} (${gameDetails.venue})`;
    
     const notification = await this.create({
       userId,
@@ -269,11 +269,10 @@ notificationSchema.statics.createGameAssignmentNotification = async function(use
 notificationSchema.statics.createAssignmentResponseNotification = async function(adminUserId, refereeDetails, gameDetails, response, rejectionReason) {
   try {
     const action = response === 'Accepted' ? 'prihvatio/la' : 'odbio/la';
-    const emoji = response === 'Accepted' ? '✅' : '❌';
     const reason = response === 'Rejected' && String(rejectionReason || '').trim()
       ? ` Razlog: ${String(rejectionReason).trim()}`
       : '';
-    const message = `${emoji} ${refereeDetails.name} ${refereeDetails.surname} je ${action} nominaciju za ${gameDetails.homeTeam} vs ${gameDetails.awayTeam} (${gameDetails.date}).${reason}`;
+    const message = `${refereeDetails.name} ${refereeDetails.surname} je ${action} nominaciju za ${gameDetails.homeTeam} vs ${gameDetails.awayTeam} (${gameDetails.date}).${reason}`;
    
     const notification = await this.create({
       userId: adminUserId,
@@ -299,7 +298,7 @@ notificationSchema.statics.createBulkGameAssignmentNotifications = async functio
       return [];
     }
 
-    const message = `🏀 Nova nominacija: ${gameDetails.homeTeam} vs ${gameDetails.awayTeam}, ${gameDetails.date} u ${gameDetails.time} (${gameDetails.venue})`;
+    const message = `Nova nominacija: ${gameDetails.homeTeam} vs ${gameDetails.awayTeam}, ${gameDetails.date} u ${gameDetails.time} (${gameDetails.venue})`;
     
     const notifications = userIds.map(userId => ({
       userId,
@@ -334,8 +333,7 @@ notificationSchema.statics.createBulkAssignmentResponseNotifications = async fun
     }
 
     const action = response === 'Accepted' ? 'prihvatio/la' : 'odbio/la';
-    const emoji = response === 'Accepted' ? '✅' : '❌';
-    const message = `${emoji} ${refereeDetails.name} ${refereeDetails.surname} je ${action} nominaciju za ${gameDetails.homeTeam} vs ${gameDetails.awayTeam} (${gameDetails.date})`;
+    const message = `${refereeDetails.name} ${refereeDetails.surname} je ${action} nominaciju za ${gameDetails.homeTeam} vs ${gameDetails.awayTeam} (${gameDetails.date})`;
     
     const notifications = adminUsers.map(admin => ({
       userId: admin._id,

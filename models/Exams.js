@@ -62,7 +62,7 @@ const examSchema = new mongoose.Schema({
   },
   expiresAt: {
     type: Date,
-    default: () => new Date(Date.now() + 2 * 60 * 60 * 1000) // 2 hours from creation
+    default: () => new Date(Date.now() + 60 * 60 * 1000) // 1 hour from creation
   }
 }, {
   timestamps: true
