@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const { normalizeRoleAssignments, pickPrimaryRole } = require('../config/roles');
 
 const JWT_SECRET = require('../config/jwt');
+const { setSessionCookie, clearSessionCookie } = require('../utils/sessionCookie');
 
 // Rate limiting for login attempts
 const loginLimiter = rateLimit({
@@ -51,8 +52,9 @@ router.post('/login', loginLimiter, async (req, res) => {
     const publicUser = user.toObject();
     delete publicUser.password;
 
+    setSessionCookie(res, token);
+
     res.json({
-      token,
       user: {
         ...publicUser,
         _id: user._id,
@@ -66,6 +68,12 @@ router.post('/login', loginLimiter, async (req, res) => {
 });
 
 const authenticateUser = require('../middleware/authMiddleware');
+
+router.post('/logout', (_req, res) => {
+  clearSessionCookie(res);
+  res.json({ message: 'Logged out' });
+});
+
 const {
   hashToken,
   passwordPolicyError,
