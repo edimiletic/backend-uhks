@@ -8,7 +8,6 @@ const Notification = require('../models/Notification');
 const NominationRejection = require('../models/NominationRejection');
 const {
   canManageCalendar,
-  canSeeAllGames,
   canAssignGameRole,
   isWithinNominationCap,
   getGamesVisibilityFilter,

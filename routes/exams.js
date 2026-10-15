@@ -2,7 +2,6 @@
 const express = require('express');
 const router = express.Router();
 const { QuestionBank, Exam, ExamAttempt } = require('../models/Exams');
-const User = require('../models/User');
 const authenticateUser = require('../middleware/authMiddleware');
 const { isAdminUser } = require('../config/roles');
 

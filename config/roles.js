@@ -132,7 +132,7 @@ const isKontrolorRequired = (competition, homeTeamCompetitions, awayTeamCompetit
 const getCompetitionRank = (competition) =>
   COMPETITION_RANK[canonicalCompetition(competition)] || COMPETITION_RANK[competition] || 0;
 
-const isWithinNominationCap = (user, competition, assignmentRole) => {
+const isWithinNominationCap = (user, competition, _assignmentRole) => {
   const cap = user && user.najvisaLiga;
   if (!cap) return true;
   return getCompetitionRank(competition) <= getCompetitionRank(cap);
@@ -192,9 +192,6 @@ const assignmentUserId = (assignment) => {
   const assigned = assignment?.userId;
   return String(typeof assigned === 'object' && assigned ? (assigned._id || assigned.id) : assigned || '');
 };
-
-const isActiveAssignment = (assignment) =>
-  assignment && assignment.assignmentStatus !== 'Rejected';
 
 const normalizeRoleAssignments = (userOrRole) => {
   if (!userOrRole) return [];

@@ -146,7 +146,7 @@ basketballGameSchema.virtual('refereeCount').get(function() {
   // Safety check for undefined/null refereeAssignments
   if (this.refereeAssignments && Array.isArray(this.refereeAssignments)) {
     this.refereeAssignments.forEach(assignment => {
-      if (assignment && assignment.role && counts.hasOwnProperty(assignment.role)) {
+      if (assignment && assignment.role && Object.prototype.hasOwnProperty.call(counts, assignment.role)) {
         counts[assignment.role]++;
       }
     });
@@ -319,7 +319,7 @@ basketballGameSchema.methods.getRefereeAssignmentSummary = function() {
   
   if (this.refereeAssignments && Array.isArray(this.refereeAssignments)) {
     this.refereeAssignments.forEach(assignment => {
-      if (assignment && assignment.role && summary.hasOwnProperty(assignment.role)) {
+      if (assignment && assignment.role && Object.prototype.hasOwnProperty.call(summary, assignment.role)) {
         summary[assignment.role].assigned++;
         
         if (assignment.position) {

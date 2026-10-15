@@ -19,7 +19,6 @@ const {
   TEMPLATE_PATH,
   toStoredFile,
   absolutePath,
-  removeStoredFile,
   removeExpenseFiles
 } = require('../utils/travelExpenseFiles');
 
