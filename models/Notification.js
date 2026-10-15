@@ -266,11 +266,14 @@ notificationSchema.statics.createGameAssignmentNotification = async function(use
 };
 
 // Static method to create assignment response notification
-notificationSchema.statics.createAssignmentResponseNotification = async function(adminUserId, refereeDetails, gameDetails, response) {
+notificationSchema.statics.createAssignmentResponseNotification = async function(adminUserId, refereeDetails, gameDetails, response, rejectionReason) {
   try {
     const action = response === 'Accepted' ? 'prihvatio/la' : 'odbio/la';
     const emoji = response === 'Accepted' ? '✅' : '❌';
-    const message = `${emoji} ${refereeDetails.name} ${refereeDetails.surname} je ${action} nominaciju za ${gameDetails.homeTeam} vs ${gameDetails.awayTeam} (${gameDetails.date})`;
+    const reason = response === 'Rejected' && String(rejectionReason || '').trim()
+      ? ` Razlog: ${String(rejectionReason).trim()}`
+      : '';
+    const message = `${emoji} ${refereeDetails.name} ${refereeDetails.surname} je ${action} nominaciju za ${gameDetails.homeTeam} vs ${gameDetails.awayTeam} (${gameDetails.date}).${reason}`;
    
     const notification = await this.create({
       userId: adminUserId,

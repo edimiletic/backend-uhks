@@ -5,6 +5,7 @@ const BasketballGame = require('../models/BasketballGames');
 const User = require('../models/User');
 const authenticateUser = require('../middleware/authMiddleware');
 const Notification = require('../models/Notification');
+const NominationRejection = require('../models/NominationRejection');
 const {
   canManageCalendar,
   canSeeAllGames,
@@ -17,6 +18,7 @@ const {
   adminUserQuery,
   commissionerRoleQuery,
   shouldReceiveAssignmentResponse,
+  canViewNominationAudit,
   timesOverlap,
   isBlockingScheduleConflict,
   userHasRoleForCompetition,
@@ -698,7 +700,7 @@ router.patch('/:id/respond-assignment', async (req, res) => {
       return res.status(400).json({ error: 'Invalid response. Must be "Accepted" or "Rejected"' });
     }
 
-    if (response === 'Rejected' && !rejectionReason) {
+    if (response === 'Rejected' && !String(rejectionReason || '').trim()) {
       return res.status(400).json({ error: 'Rejection reason is required when rejecting assignment' });
     }
 
@@ -759,7 +761,8 @@ router.patch('/:id/respond-assignment', async (req, res) => {
           userId,
           refereeDetails,
           gameDetails,
-          response
+          response,
+          response === 'Rejected' ? rejectionReason : undefined
         )
       ));
       console.log(`Assignment response notifications created for ${recipientIds.length} recipients`);
@@ -773,16 +776,17 @@ router.patch('/:id/respond-assignment', async (req, res) => {
       assignment.assignmentStatus = 'Accepted';
       assignment.respondedAt = new Date();
     } else if (response === 'Rejected') {
-      // Store rejection information for audit purposes (optional)
-      console.log(`Assignment rejected by ${req.user.name} ${req.user.surname}:`, {
+      await NominationRejection.create({
         gameId: game._id,
+        userId: req.user._id,
+        name: req.user.name,
+        surname: req.user.surname,
         role: assignment.role,
         position: assignment.position,
-        reason: rejectionReason,
+        reason: String(rejectionReason).trim(),
         rejectedAt: new Date()
       });
 
-      // Remove the assignment entirely so the position becomes available
       game.refereeAssignments.splice(assignmentIndex, 1);
     }
 
@@ -926,22 +930,25 @@ router.post('/:id/colleague-replacement', async (req, res) => {
   }
 });
 
-// GET - Get assignment rejection history (Admin only) - Optional for tracking
+// GET - Audit odbijanja nominacija (Admin i povjerenik za službene osobe)
 router.get('/:id/rejection-history', async (req, res) => {
   try {
-    // Check if user is admin
-    if (!isAdminUser(req.user)) {
-      return res.status(403).json({ error: 'Access denied. Admin role required.' });
+    const game = await BasketballGame.findById(req.params.id).select('competition');
+    if (!game) {
+      return res.status(404).json({ error: 'Basketball game not found' });
     }
 
-    // This would require a separate collection or audit log
-    // For now, we'll return an empty array since rejections are removed
-    // In a production system, you might want to store rejections in a separate audit collection
-    
+    if (!canViewNominationAudit(req.user, game.competition)) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    const rejections = await NominationRejection.find({ gameId: req.params.id })
+      .sort({ rejectedAt: -1 })
+      .lean();
+
     res.json({
       gameId: req.params.id,
-      rejections: [],
-      note: "Rejections are removed from assignments to free up positions. Consider implementing audit logging for rejection tracking."
+      rejections
     });
   } catch (error) {
     console.error('Get rejection history error:', error);

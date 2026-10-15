@@ -11,7 +11,8 @@ const {
   isWithinNominationCap,
   normalizeRoleAssignments,
   pickPrimaryRole,
-  userHasRole
+  userHasRole,
+  canViewNominationAudit
 } = require('../config/roles');
 
 const user = (...roles) => ({
@@ -88,5 +89,18 @@ describe('roles', () => {
   it('katalog liga postoji', () => {
     assert.ok(ALL_COMPETITIONS.includes('SuperSport Premijer liga'));
     assert.ok(ALL_COMPETITIONS.includes('PRVA MUŠKA LIGA'));
+  });
+
+  it('audit odbijanja vide Admin i povjerenik za službene osobe', () => {
+    const liga = 'SuperSport Premijer liga';
+    assert.equal(canViewNominationAudit(user('Admin'), liga), true);
+    assert.equal(
+      canViewNominationAudit(
+        user({ name: 'Povjerenik za službene osobe', competitions: [] }),
+        liga
+      ),
+      true
+    );
+    assert.equal(canViewNominationAudit(user('Sudac'), liga), false);
   });
 });

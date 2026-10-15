@@ -401,6 +401,9 @@ const shouldReceiveAssignmentResponse = (user, assignmentRole, competition) => {
   return false;
 };
 
+const canViewNominationAudit = (user, competition) =>
+  isAdminUser(user) || canNominateOfficials(user, competition);
+
 const roleNameList = (userOrRoles) => {
   if (Array.isArray(userOrRoles) && (userOrRoles.length === 0 || typeof userOrRoles[0] === 'string')) {
     return [...new Set(userOrRoles)];
@@ -471,6 +474,7 @@ module.exports = {
   adminUserQuery,
   commissionerRoleQuery,
   shouldReceiveAssignmentResponse,
+  canViewNominationAudit,
   COMPETITION_RANK,
   getCompetitionRank,
   isBlockingScheduleConflict,
