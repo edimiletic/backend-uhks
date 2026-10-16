@@ -7,13 +7,14 @@ const User = require('../models/User');
 const rateLimit = require('express-rate-limit');
 const { normalizeRoleAssignments, pickPrimaryRole } = require('../config/roles');
 const { ipLimiter, usernameLimiter } = require('../middleware/loginRateLimit');
+const noStore = require('../middleware/noStore');
 
 const JWT_SECRET = require('../config/jwt');
 const { setSessionCookie, clearSessionCookie } = require('../utils/sessionCookie');
 
 const INVALID_LOGIN = 'Neispravno korisničko ime ili lozinka';
 
-router.post('/login', ipLimiter, usernameLimiter, async (req, res) => {
+router.post('/login', noStore, ipLimiter, usernameLimiter, async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -62,7 +63,7 @@ router.post('/login', ipLimiter, usernameLimiter, async (req, res) => {
 
 const authenticateUser = require('../middleware/authMiddleware');
 
-router.post('/logout', (_req, res) => {
+router.post('/logout', noStore, (_req, res) => {
   clearSessionCookie(res);
   res.json({ message: 'Logged out' });
 });
@@ -143,7 +144,7 @@ router.post('/change-password', authenticateUser, async (req, res) => {
 });
 
 // Get current logged-in user
-router.get('/me', authenticateUser, (req, res) => {
+router.get('/me', noStore, authenticateUser, (req, res) => {
   res.json(req.user); // user is attached by middleware
 });
 
