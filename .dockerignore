@@ -1,0 +1,10 @@
+node_modules
+.git
+.github
+.env
+uploads
+test
+*.md
+.vercel
+vercel.json
+.DS_Store

@@ -18,6 +18,8 @@ const {
   commissionerRoleQuery,
   shouldReceiveAssignmentResponse,
   canViewNominationAudit,
+  canViewStatistics,
+  GAME_ASSIGNMENT_ROLES,
   timesOverlap,
   isBlockingScheduleConflict,
   userHasRoleForCompetition,
@@ -257,7 +259,53 @@ router.get('/', async (req, res) => {
   }
 });
 
-// READ - Get games assigned to current user
+router.get('/rejection-counts', async (req, res) => {
+  try {
+    if (!canViewStatistics(req.user)) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    const { startDate, endDate, role, competition } = req.query;
+    const match = {};
+
+    if (role && GAME_ASSIGNMENT_ROLES.includes(role)) {
+      match.role = role;
+    }
+
+    if (startDate || endDate) {
+      match.rejectedAt = {};
+      if (startDate) {
+        match.rejectedAt.$gte = new Date(`${String(startDate).slice(0, 10)}T00:00:00.000Z`);
+      }
+      if (endDate) {
+        match.rejectedAt.$lte = new Date(`${String(endDate).slice(0, 10)}T23:59:59.999Z`);
+      }
+    }
+
+    if (competition) {
+      const games = await BasketballGame.find({
+        competition: canonicalCompetition(competition) || competition
+      }).select('_id');
+      match.gameId = { $in: games.map((game) => game._id) };
+    }
+
+    const rows = await NominationRejection.aggregate([
+      { $match: match },
+      { $group: { _id: '$userId', count: { $sum: 1 } } }
+    ]);
+
+    const counts = {};
+    rows.forEach((row) => {
+      counts[String(row._id)] = row.count;
+    });
+
+    return res.json({ counts });
+  } catch (error) {
+    console.error('Get rejection counts error:', error);
+    return res.status(500).json({ error: 'Failed to get rejection counts' });
+  }
+});
+
 router.get('/my-assignments', async (req, res) => {
   try {
     const games = await BasketballGame.find({

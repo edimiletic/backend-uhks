@@ -48,6 +48,10 @@ app.get('/', (req, res) => {
   res.send('🌍 API is running...');
 });
 
+app.get('/health', (_req, res) => {
+  res.json({ ok: true });
+});
+
 app.use('/api', authRoutes); // <-- route prefix
 app.use('/api/absence', absenceRoutes)
 app.use('/api/travel-expense', travelExpenseRoutes)
@@ -60,7 +64,7 @@ app.use('/api/catalog', catalogRoutes);
 
 // Start server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   const { isMailConfigured } = require('./utils/mailer');
   console.log(isMailConfigured()
