@@ -56,6 +56,7 @@ Obavezno:
 | `COOKIE_SECURE` | `true` |
 | `COOKIE_SAMESITE` | `none` (frontend i API na različitim hostovima) |
 | `SMTP_MIN_INTERVAL_MS` | `0` ili izostavi (default je 0). **Ne šalji Mailtrap delay 1100 ms na Railway.** |
+| `TRUST_PROXY` | ostavi prazno u produkciji (default 1 hop za Railway). Lokalno se ne postavlja. |
 
 Mail je opcionalan. Bez `SMTP_HOST` + `MAIL_FROM` nominacije i dalje rade u aplikaciji, samo se mail ne šalje. Kad ide pravi SMTP (Resend, Postmark, 365), postavi host/user/pass/`MAIL_FROM` i ostavi interval na 0.
 
