@@ -62,6 +62,8 @@ Mail je opcionalan. Bez `SMTP_HOST` + `MAIL_FROM` nominacije i dalje rade u apli
 
 `vercel.json` nije u upotrebi.
 
+Helmet na API-ju šalje `nosniff` i slične headere. CSP i COEP su isključeni (JSON API, odvojeni frontend). HSTS samo kad je `NODE_ENV=production`.
+
 ## Health
 
 `GET /health` → `{ "ok": true }`

@@ -15,9 +15,11 @@ const seedCatalog = require('./scripts/seedCatalog');
 const seedDisplayIds = require('./scripts/seedDisplayIds');
 const { startNominationExpiryJob } = require('./utils/nominationExpiry');
 const { configureTrustProxy } = require('./utils/trustProxy');
+const { configureSecurityHeaders } = require('./utils/securityHeaders');
 
 const app = express();
 configureTrustProxy(app);
+configureSecurityHeaders(app);
 
 const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:4200')
   .split(',')
