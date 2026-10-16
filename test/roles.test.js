@@ -79,6 +79,8 @@ describe('roles', () => {
     const sudac = { najvisaLiga: 'PRVA MUŠKA LIGA' };
     assert.equal(isWithinNominationCap(sudac, 'PRVA MUŠKA LIGA', 'Sudac'), true);
     assert.equal(isWithinNominationCap(sudac, 'SuperSport Premijer liga', 'Sudac'), false);
+    assert.equal(isWithinNominationCap(sudac, 'PREMIJER ŽENSKA LIGA', 'Sudac'), true);
+    assert.equal(isWithinNominationCap(sudac, 'KUP «R. MEGLAJ-RIMAC»', 'Sudac'), true);
   });
 
   it('admin smije nominirati sam sebe, ostali ne', () => {
