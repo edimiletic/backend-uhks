@@ -15,7 +15,8 @@ const { setSessionCookie, clearSessionCookie } = require('../utils/sessionCookie
 const INVALID_LOGIN = 'Neispravno korisničko ime ili lozinka';
 
 router.post('/login', noStore, ipLimiter, usernameLimiter, async (req, res) => {
-  const { username, password } = req.body;
+  const username = String(req.body?.username || '').trim();
+  const password = req.body?.password;
 
   if (!username || !password) {
     return res.status(400).json({ error: 'Unesi korisničko ime i lozinku.' });
@@ -23,11 +24,12 @@ router.post('/login', noStore, ipLimiter, usernameLimiter, async (req, res) => {
 
   try {
     const user = await User.findOne({ username });
-    if (!user) {
+    const passwordHash = user?.password || user?._doc?.password;
+    if (!user || !passwordHash) {
       return res.status(401).json({ error: INVALID_LOGIN });
     }
 
-    const valid = await bcrypt.compare(password, user.password);
+    const valid = await bcrypt.compare(password, passwordHash);
     if (!valid) {
       return res.status(401).json({ error: INVALID_LOGIN });
     }

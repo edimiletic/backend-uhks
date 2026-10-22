@@ -1,9 +1,21 @@
 // backend/routes/exams.js
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const { QuestionBank, Exam, ExamAttempt } = require('../models/Exams');
 const authenticateUser = require('../middleware/authMiddleware');
 const { isAdminUser } = require('../config/roles');
+
+function examPayloadForTaker(exam) {
+  return {
+    ...exam.toObject(),
+    questions: exam.questions.map((q, index) => ({
+      _id: q._id,
+      questionText: q.questionText,
+      index
+    }))
+  };
+}
 
 // Apply authentication middleware to all routes
 router.use(authenticateUser);
@@ -83,20 +95,10 @@ router.get('/current', async (req, res) => {
     });
     
     if (!exam) {
-      return res.status(404).json({ error: 'No active exam found' });
+      return res.status(404).json({ error: 'Nema aktivnog ispita.' });
     }
 
-    // Return exam without correct answers
-    const examForUser = {
-      ...exam.toObject(),
-      questions: exam.questions.map((q, index) => ({
-        _id: q._id,
-        questionText: q.questionText,
-        index: index
-      }))
-    };
-
-    res.json(examForUser);
+    res.json(examPayloadForTaker(exam));
   } catch (error) {
     console.error('Get current exam error:', error);
     res.status(500).json({ error: 'Failed to fetch exam' });
@@ -412,6 +414,36 @@ router.get('/stats', async (req, res) => {
   } catch (error) {
     console.error('Get exam stats error:', error);
     res.status(500).json({ error: 'Failed to fetch exam statistics' });
+  }
+});
+
+router.get('/:id', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ error: 'Ispit nije pronađen.' });
+    }
+
+    const exam = await Exam.findById(req.params.id);
+    if (!exam) {
+      return res.status(404).json({ error: 'Ispit nije pronađen ili je istekao.' });
+    }
+
+    if (exam.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Nemate pristup ovom ispitu.' });
+    }
+
+    if (exam.isCompleted) {
+      return res.status(404).json({ error: 'Ispit je već predan.' });
+    }
+
+    if (exam.expiresAt && exam.expiresAt.getTime() <= Date.now()) {
+      return res.status(404).json({ error: 'Vrijeme za ovaj ispit je isteklo.' });
+    }
+
+    return res.json(examPayloadForTaker(exam));
+  } catch (error) {
+    console.error('Get exam by id error:', error);
+    return res.status(500).json({ error: 'Ispit se nije mogao učitati.' });
   }
 });
 

@@ -21,7 +21,7 @@ const app = express();
 configureTrustProxy(app);
 configureSecurityHeaders(app);
 
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:4200')
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:4200,http://127.0.0.1:4200')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
