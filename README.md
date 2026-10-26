@@ -66,4 +66,4 @@ Helmet na API-ju šalje `nosniff` i slične headere. CSP i COEP su isključeni (
 
 ## Health
 
-`GET /health` → `{ "ok": true }`
+`GET /health` → `{ "ok": true }` i status 200 samo kad je Mongo spojen (`readyState === 1`). Inače 503 `{ "ok": false }`. API sluša port tek nakon uspješnog `connectDB`.

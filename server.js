@@ -16,6 +16,7 @@ const seedDisplayIds = require('./scripts/seedDisplayIds');
 const { startNominationExpiryJob } = require('./utils/nominationExpiry');
 const { configureTrustProxy } = require('./utils/trustProxy');
 const { configureSecurityHeaders } = require('./utils/securityHeaders');
+const { sendHealth } = require('./utils/health');
 
 const app = express();
 configureTrustProxy(app);
@@ -38,23 +39,11 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Connect to MongoDB and seed club/venue lookup lists
-connectDB().then(async () => {
-  await seedCatalog();
-  await seedDisplayIds();
-  startNominationExpiryJob();
-}).catch((error) => {
-  console.error('❌ Seed error:', error.message);
-});
-
-// Routes
 app.get('/', (req, res) => {
   res.send('🌍 API is running...');
 });
 
-app.get('/health', (_req, res) => {
-  res.json({ ok: true });
-});
+app.get('/health', sendHealth);
 
 app.use('/api', authRoutes); // <-- route prefix
 app.use('/api/absence', absenceRoutes)
@@ -66,12 +55,23 @@ app.use('/api/notifications', notificationRoutes)
 app.use('/api/catalog', catalogRoutes);
 
 
-// Start server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  const { isMailConfigured } = require('./utils/mailer');
-  console.log(isMailConfigured()
-    ? `📧 SMTP spreman (${process.env.SMTP_HOST})`
-    : '📧 SMTP nije konfiguriran — mailovi se ne šalju');
+
+const start = async () => {
+  await connectDB();
+  await seedCatalog();
+  await seedDisplayIds();
+  startNominationExpiryJob();
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    const { isMailConfigured } = require('./utils/mailer');
+    console.log(isMailConfigured()
+      ? `📧 SMTP spreman (${process.env.SMTP_HOST})`
+      : '📧 SMTP nije konfiguriran — mailovi se ne šalju');
+  });
+};
+
+start().catch((error) => {
+  console.error('Startup error:', error.message);
+  process.exit(1);
 });
