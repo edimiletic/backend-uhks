@@ -39,7 +39,7 @@ docker compose --profile local-mongo up --build
 
 Tada u `.env` privremeno stavi `MONGO_URI=mongodb://host.docker.internal:27017/uhks` — inače i dalje ide Atlas.
 
-Putni troškovi (datoteke) ostaju u volumeu `travel-uploads`.
+Putni nalozi i računi spremaju se u MongoDB GridFS (kolekcije `travelOrders.files` / `travelOrders.chunks`), ne na disk API procesa. Predložak `templates/putni-nalog-hks.xls` i dalje je u repou. Stari lokalni uploadi u `uploads/travel-orders` se i dalje mogu preuzeti ako postoje.
 
 ## Produkcija (Railway)
 

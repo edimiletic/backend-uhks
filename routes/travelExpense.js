@@ -17,8 +17,9 @@ const {
 const {
   upload,
   TEMPLATE_PATH,
-  toStoredFile,
-  absolutePath,
+  saveMulterFile,
+  sendStoredFile,
+  removeStoredFile,
   removeExpenseFiles
 } = require('../utils/travelExpenseFiles');
 
@@ -130,11 +131,7 @@ router.get('/eligible-games', async (req, res) => {
 });
 
 router.post('/', handleUpload, async (req, res) => {
-  const uploaded = [
-    req.files?.nalog?.[0],
-    req.files?.fuelReceipt?.[0],
-    req.files?.tollReceipt?.[0]
-  ].filter(Boolean);
+  const storedUploads = [];
 
   try {
     const gameId = req.body.gameId;
@@ -144,27 +141,22 @@ router.post('/', handleUpload, async (req, res) => {
     const tollReceipt = req.files?.tollReceipt?.[0];
 
     if (!gameId) {
-      uploaded.forEach((file) => fs.unlink(file.path, () => {}));
       return res.status(400).json({ error: 'Odaberite utakmicu.' });
     }
     if (!nalog || !fuelReceipt) {
-      uploaded.forEach((file) => fs.unlink(file.path, () => {}));
       return res.status(400).json({ error: 'Obavezni su putni nalog i PDF računa goriva.' });
     }
     if (usedHighway && !tollReceipt) {
-      uploaded.forEach((file) => fs.unlink(file.path, () => {}));
       return res.status(400).json({ error: 'Za autocestu priložite PDF računa cestarine.' });
     }
 
     const game = await BasketballGame.findById(gameId);
     if (!game) {
-      uploaded.forEach((file) => fs.unlink(file.path, () => {}));
       return res.status(404).json({ error: 'Utakmica nije pronađena.' });
     }
 
     const assignment = acceptedAssignment(game, req.user._id);
     if (!assignment) {
-      uploaded.forEach((file) => fs.unlink(file.path, () => {}));
       return res.status(403).json({
         error: 'Putni nalog može predati samo osoba s prihvaćenom nominacijom na toj utakmici.'
       });
@@ -172,23 +164,41 @@ router.post('/', handleUpload, async (req, res) => {
 
     const existing = await TravelExpense.findOne({ userId: req.user._id, gameId: game._id });
     if (existing && existing.state !== 'Odbijeno') {
-      uploaded.forEach((file) => fs.unlink(file.path, () => {}));
       return res.status(400).json({ error: 'Za ovu utakmicu već postoji putni nalog.' });
     }
 
+    const keepUpload = async (file) => {
+      const stored = await saveMulterFile(file);
+      storedUploads.push(stored);
+      return stored;
+    };
+
+    const nalogFile = await keepUpload(nalog);
+    const fuelReceiptFile = await keepUpload(fuelReceipt);
+    const tollReceiptFile = usedHighway ? await keepUpload(tollReceipt) : undefined;
+
     if (existing) {
-      removeExpenseFiles(existing);
+      const previousFiles = {
+        nalogFile: existing.nalogFile,
+        fuelReceiptFile: existing.fuelReceiptFile,
+        tollReceiptFile: existing.tollReceiptFile
+      };
       existing.assignmentRole = assignment.role;
       existing.usedHighway = usedHighway;
-      existing.nalogFile = toStoredFile(nalog);
-      existing.fuelReceiptFile = toStoredFile(fuelReceipt);
-      existing.tollReceiptFile = usedHighway ? toStoredFile(tollReceipt) : undefined;
+      existing.nalogFile = nalogFile;
+      existing.fuelReceiptFile = fuelReceiptFile;
+      if (usedHighway) {
+        existing.tollReceiptFile = tollReceiptFile;
+      } else {
+        existing.set('tollReceiptFile', undefined);
+      }
       existing.state = 'Predano';
       existing.submittedAt = new Date();
       existing.reviewedAt = undefined;
       existing.reviewedBy = undefined;
       existing.reviewComments = '';
       const saved = await existing.save();
+      await removeExpenseFiles(previousFiles);
       await saved.populate('userId', 'name surname');
       await saved.populate('gameId', 'homeTeam awayTeam date time venue competition');
       return res.status(200).json(saved);
@@ -199,9 +209,9 @@ router.post('/', handleUpload, async (req, res) => {
       gameId: game._id,
       assignmentRole: assignment.role,
       usedHighway,
-      nalogFile: toStoredFile(nalog),
-      fuelReceiptFile: toStoredFile(fuelReceipt),
-      tollReceiptFile: usedHighway ? toStoredFile(tollReceipt) : undefined,
+      nalogFile,
+      fuelReceiptFile,
+      tollReceiptFile,
       state: 'Predano',
       submittedAt: new Date()
     });
@@ -210,7 +220,7 @@ router.post('/', handleUpload, async (req, res) => {
     await saved.populate('gameId', 'homeTeam awayTeam date time venue competition');
     res.status(201).json(saved);
   } catch (error) {
-    uploaded.forEach((file) => fs.unlink(file.path, () => {}));
+    await Promise.all(storedUploads.map((file) => removeStoredFile(file)));
     console.error('Create travel expense error:', error);
     res.status(500).json({ error: 'Neuspješno spremanje putnog naloga.' });
   }
@@ -262,15 +272,14 @@ router.get('/:id/files/:kind', async (req, res) => {
       kind === 'fuel' ? expense.fuelReceiptFile :
       kind === 'toll' ? expense.tollReceiptFile :
       null;
-    if (!file?.storedName) {
+    if (!file) {
       return res.status(404).json({ error: 'Datoteka nije pronađena.' });
     }
 
-    const filePath = absolutePath(file.storedName);
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'Datoteka nije pronađena na disku.' });
+    const sent = await sendStoredFile(res, file);
+    if (!sent) {
+      return res.status(404).json({ error: 'Datoteka nije pronađena.' });
     }
-    res.download(filePath, file.originalName);
   } catch (error) {
     console.error('Download travel file error:', error);
     res.status(500).json({ error: 'Preuzimanje datoteke nije uspjelo.' });
@@ -313,7 +322,7 @@ router.delete('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Odobreni nalog se ne može obrisati.' });
     }
 
-    removeExpenseFiles(expense);
+    await removeExpenseFiles(expense);
     await TravelExpense.findByIdAndDelete(req.params.id);
     res.json({ message: 'Putni nalog je obrisan.' });
   } catch (error) {

@@ -5,6 +5,7 @@ const { GAME_ASSIGNMENT_ROLES } = require('../config/roles');
 const storedFileSchema = new mongoose.Schema({
   originalName: { type: String, required: true, trim: true },
   storedName: { type: String, required: true, trim: true },
+  fileId: { type: mongoose.Schema.Types.ObjectId, required: false },
   mimeType: { type: String, required: true, trim: true },
   size: { type: Number, required: true, min: 1 }
 }, { _id: false });
