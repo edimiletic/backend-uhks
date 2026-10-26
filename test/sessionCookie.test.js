@@ -56,17 +56,17 @@ describe('sessionCookie', () => {
     assert.equal(cookieSameSite(), 'lax');
   });
 
-  it('čita Bearer token prije kolačića', () => {
+  it('ignorira Authorization Bearer i čita samo kolačić', () => {
     const token = readSessionToken({
       headers: {
         authorization: 'Bearer from-header',
         cookie: `${COOKIE_NAME}=from-cookie`
       }
     });
-    assert.equal(token, 'from-header');
+    assert.equal(token, 'from-cookie');
   });
 
-  it('čita httpOnly kolačić kad nema Bearera', () => {
+  it('čita httpOnly kolačić', () => {
     const token = readSessionToken({
       headers: {
         cookie: `other=1; ${COOKIE_NAME}=jwt.token.value; keep=yes`

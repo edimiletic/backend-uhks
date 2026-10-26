@@ -9,7 +9,7 @@ Express + MongoDB. Frontend je odvojeni repo (`ukspgz-frontend`).
 3. Lokalni Mailtrap: ostavi `SMTP_MIN_INTERVAL_MS=1100`.
 4. `npm ci` pa `npm run dev` (port `3000`).
 
-Angular na `http://localhost:4200` šalje kolačić sesije (`SameSite=Lax`). CORS je već `credentials: true`.
+Angular na `http://localhost:4200` šalje kolačić sesije (`SameSite=Lax`). CORS je već `credentials: true`. API prihvaća samo taj kolačić (`uhks_session`), ne `Authorization: Bearer`. Odjava briše kolačić i time gasi pristup.
 
 ## Docker
 

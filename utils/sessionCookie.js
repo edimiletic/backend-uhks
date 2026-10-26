@@ -63,19 +63,7 @@ function parseCookies(header) {
   return cookies;
 }
 
-function readBearerToken(authorizationHeader) {
-  if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ')) {
-    return null;
-  }
-  const token = authorizationHeader.slice(7).trim();
-  return token || null;
-}
-
 function readSessionToken(req) {
-  const bearer = readBearerToken(req.headers && req.headers.authorization);
-  if (bearer) {
-    return bearer;
-  }
   const cookies = parseCookies(req.headers && req.headers.cookie);
   return cookies[COOKIE_NAME] || null;
 }
