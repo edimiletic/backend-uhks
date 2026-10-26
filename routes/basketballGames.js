@@ -11,6 +11,7 @@ const {
   canAssignGameRole,
   isWithinNominationCap,
   getGamesVisibilityFilter,
+  canViewRefereeSchedule,
   canAccessGame,
   userHasRole,
   isAdminUser,
@@ -33,6 +34,14 @@ const toDateKey = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toISOString().slice(0, 10);
+};
+
+const dayBounds = (dateValue) => {
+  const queryDate = new Date(dateValue);
+  if (Number.isNaN(queryDate.getTime())) return null;
+  const startOfDay = new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate());
+  const endOfDay = new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate() + 1);
+  return { startOfDay, endOfDay };
 };
 
 const rejectPastGameEdit = (req, res, game) => {
@@ -157,30 +166,27 @@ router.post('/', async (req, res) => {
 router.get('/referee/:refereeId/date/:date', async (req, res) => {
   try {
     const { refereeId, date } = req.params;
-    
-    console.log(` Backend: Getting games for referee ${refereeId} on date ${date}`);
-    
-    // Parse the date to get start and end of day
-    const queryDate = new Date(date);
-    const startOfDay = new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate());
-    const endOfDay = new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate() + 1);
+    if (!canViewRefereeSchedule(req.user, refereeId)) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
 
-    console.log(` Backend: Searching from ${startOfDay} to ${endOfDay}`);
+    const bounds = dayBounds(date);
+    if (!bounds) {
+      return res.status(400).json({ error: 'Invalid date' });
+    }
 
-    // Find all games where the referee is assigned on the specified date
-    // CHANGED: Include both 'Accepted' AND 'Pending' assignments
     const games = await BasketballGame.find({
-      'refereeAssignments.userId': refereeId,
-      'refereeAssignments.assignmentStatus': { $in: ['Accepted', 'Pending'] }, // ← Changed this line
-      date: {
-        $gte: startOfDay,
-        $lt: endOfDay
-      }
+      $and: [
+        {
+          'refereeAssignments.userId': refereeId,
+          'refereeAssignments.assignmentStatus': { $in: ['Accepted', 'Pending'] },
+          date: { $gte: bounds.startOfDay, $lt: bounds.endOfDay }
+        },
+        getGamesVisibilityFilter(req.user)
+      ]
     })
     .select('homeTeam awayTeam date time venue competition')
     .lean();
-
-    console.log(` Backend: Found ${games.length} games for referee ${refereeId}:`, games);
 
     res.json(games);
   } catch (error) {
@@ -193,12 +199,16 @@ router.get('/referee/:refereeId/date/:date', async (req, res) => {
 router.get('/schedule/:date', async (req, res) => {
   try {
     const { date } = req.params;
-    const queryDate = new Date(date);
-    const startOfDay = new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate());
-    const endOfDay = new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate() + 1);
+    const bounds = dayBounds(date);
+    if (!bounds) {
+      return res.status(400).json({ error: 'Invalid date' });
+    }
 
     const games = await BasketballGame.find({
-      date: { $gte: startOfDay, $lt: endOfDay }
+      $and: [
+        { date: { $gte: bounds.startOfDay, $lt: bounds.endOfDay } },
+        getGamesVisibilityFilter(req.user)
+      ]
     })
       .select('time competition refereeAssignments.userId refereeAssignments.assignmentStatus')
       .lean();

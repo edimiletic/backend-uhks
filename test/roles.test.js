@@ -12,7 +12,8 @@ const {
   normalizeRoleAssignments,
   pickPrimaryRole,
   userHasRole,
-  canViewNominationAudit
+  canViewNominationAudit,
+  canViewRefereeSchedule
 } = require('../config/roles');
 
 const user = (...roles) => ({
@@ -104,5 +105,16 @@ describe('roles', () => {
       true
     );
     assert.equal(canViewNominationAudit(user('Sudac'), liga), false);
+  });
+
+  it('raspored drugog suca vide samo admin i povjerenik', () => {
+    const sudac = { _id: 's1', roles: [{ name: 'Sudac', competitions: [] }] };
+    const drugi = { _id: 's2', roles: [{ name: 'Sudac', competitions: [] }] };
+    const povjerenik = user({ name: 'Povjerenik za službene osobe', competitions: [] });
+    assert.equal(canViewRefereeSchedule(sudac, 's1'), true);
+    assert.equal(canViewRefereeSchedule(sudac, 's2'), false);
+    assert.equal(canViewRefereeSchedule(drugi, 's1'), false);
+    assert.equal(canViewRefereeSchedule(povjerenik, 's1'), true);
+    assert.equal(canViewRefereeSchedule(user('Admin'), 's1'), true);
   });
 });

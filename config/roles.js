@@ -356,6 +356,12 @@ const getGamesVisibilityFilter = (user) => {
   };
 };
 
+const canViewRefereeSchedule = (viewer, refereeId) => {
+  if (!viewer || !refereeId) return false;
+  if (String(viewer._id || viewer.id) === String(refereeId)) return true;
+  return canSeeAllGames(viewer);
+};
+
 const canAssignGameRole = (userOrRole, assignmentRole, competition) => {
   if (isAdminUser(userOrRole)) {
     return GAME_ASSIGNMENT_ROLES.includes(assignmentRole);
@@ -457,6 +463,7 @@ module.exports = {
   canSeeAllGames,
   canAccessGame,
   getGamesVisibilityFilter,
+  canViewRefereeSchedule,
   canAssignGameRole,
   isTopProfessionalCompetition,
   CUP_COSIC,
