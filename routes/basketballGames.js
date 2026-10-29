@@ -28,6 +28,7 @@ const {
   canonicalCompetition
 } = require('../config/roles');
 const { assertCompetitionHasCommissioners } = require('../utils/commissionerCoverage');
+const { parsePagination } = require('../utils/pagination');
 const { isPlayedGame } = require('../utils/nominationExpiry');
 
 const toDateKey = (value) => {
@@ -223,7 +224,8 @@ router.get('/schedule/:date', async (req, res) => {
 // READ - Get all basketball games with optional filters
 router.get('/', async (req, res) => {
   try {
-    const { date, competition, status, homeTeam, awayTeam, page = 1, limit = 20 } = req.query;
+    const { date, competition, status, homeTeam, awayTeam } = req.query;
+    const { page, limit, skip } = parsePagination(req.query);
     
     // Build filter object
     let filter = {};
@@ -242,7 +244,6 @@ router.get('/', async (req, res) => {
 
     Object.assign(filter, getGamesVisibilityFilter(req.user));
 
-    const skip = (page - 1) * limit;
     const totalGames = await BasketballGame.countDocuments(filter);
     
     const games = await BasketballGame.find(filter)
@@ -251,12 +252,12 @@ router.get('/', async (req, res) => {
       .populate('refereeAssignments.userId', 'name surname role')
       .sort({ date: 1, time: 1 })
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(limit);
 
     res.json({
       games,
       pagination: {
-        currentPage: parseInt(page),
+        currentPage: page,
         totalPages: Math.ceil(totalGames / limit),
         totalGames,
         hasNext: skip + games.length < totalGames,

@@ -4,6 +4,7 @@ const router = express.Router();
 const Notification = require('../models/Notification');
 const authenticateUser = require('../middleware/authMiddleware');
 const { adminUserQuery, isAdminUser } = require('../config/roles');
+const { parsePagination } = require('../utils/pagination');
 
 // Apply authentication middleware to all routes
 router.use(authenticateUser);
@@ -11,12 +12,12 @@ router.use(authenticateUser);
 // GET - Get notifications for current user (recent 20 by default)
 router.get('/', async (req, res) => {
   try {
-    const { limit = 20 } = req.query;
-    
+    const { limit } = parsePagination(req.query);
+
     const notifications = await Notification.find({ userId: req.user._id })
       .populate('gameId', 'homeTeam awayTeam date time venue')
       .sort({ createdAt: -1 })
-      .limit(parseInt(limit));
+      .limit(limit);
 
     res.json(notifications);
   } catch (error) {
@@ -28,8 +29,8 @@ router.get('/', async (req, res) => {
 // GET - Get all notifications with pagination
 router.get('/all', async (req, res) => {
   try {
-    const { page = 1, limit = 20, type, unread } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const { type, unread } = req.query;
+    const { page, limit, skip } = parsePagination(req.query);
     const filter = { userId: req.user._id };
     if (type) {
       filter.type = type;
@@ -43,12 +44,12 @@ router.get('/all', async (req, res) => {
       .populate('gameId', 'homeTeam awayTeam date time venue')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(limit);
 
     res.json({
       notifications,
-        totalPages: Math.ceil(total / parseInt(limit)),
-      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
       total
     });
   } catch (error) {

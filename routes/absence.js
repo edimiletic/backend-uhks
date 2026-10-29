@@ -5,6 +5,7 @@ const Absence = require('../models/Absence');
 const User = require('../models/User'); // Add User import
 const authenticateUser = require('../middleware/authMiddleware');
 const { canSeeAllGames, isAdminUser, getSupervisedAbsencePersonalCodes, getRoleNames } = require('../config/roles');
+const { parsePagination } = require('../utils/pagination');
 
 // Apply authentication middleware to all routes
 router.use(authenticateUser);
@@ -94,7 +95,8 @@ router.get('/', async (req, res) => {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
-    const { page = 1, limit = 10, userPersonalCode, startDate, endDate } = req.query;
+    const { userPersonalCode, startDate, endDate } = req.query;
+    const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 10 });
     
     // Build filter object
     const filter = {};
@@ -117,8 +119,8 @@ router.get('/', async (req, res) => {
     // Get absences with user information
     const absences = await Absence.find(filter)
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .limit(limit)
+      .skip(skip);
 
     const userMap = {};
     users.forEach(user => {
