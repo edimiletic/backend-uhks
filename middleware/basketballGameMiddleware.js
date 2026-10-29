@@ -1,47 +1,17 @@
-// backend/middleware/basketballGameMiddleware.js
-const BasketballGame = require('../models/basketballGame');
+const BasketballGame = require('../models/BasketballGames');
 const User = require('../models/User');
-const { ALL_COMPETITIONS, isAdminUser, userHasRole, canAccessGame, cannotNominateSelf } = require('../config/roles');
+const { isAdminUser, userHasRole, canAccessGame, cannotNominateSelf } = require('../config/roles');
+const { gamePayloadError } = require('../utils/gamePayload');
 
-// Middleware to validate game creation/update data
 const validateGameData = (req, res, next) => {
-  const { homeTeam, awayTeam, date, time, venue, competition } = req.body;
-
-  // Validate required fields
-  if (!homeTeam || !awayTeam || !date || !time || !venue || !competition) {
-    return res.status(400).json({ 
-      error: 'Missing required fields: homeTeam, awayTeam, date, time, venue, competition' 
-    });
+  const error = gamePayloadError(req.body, {
+    requireAll: true,
+    allowPastDate: isAdminUser(req.user),
+    allowLegacyCompetition: false
+  });
+  if (error) {
+    return res.status(400).json({ error });
   }
-
-  // Validate teams are different
-  if (homeTeam.toLowerCase().trim() === awayTeam.toLowerCase().trim()) {
-    return res.status(400).json({ error: 'Home team and away team cannot be the same' });
-  }
-
-  // Validate date format and future date
-  const gameDate = new Date(date);
-  if (isNaN(gameDate.getTime())) {
-    return res.status(400).json({ error: 'Invalid date format' });
-  }
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  if (gameDate < today) {
-    return res.status(400).json({ error: 'Game date cannot be in the past' });
-  }
-
-  // Validate time format (HH:MM)
-  const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-  if (!timeRegex.test(time)) {
-    return res.status(400).json({ error: 'Invalid time format. Use HH:MM format' });
-  }
-
-  if (!ALL_COMPETITIONS.includes(competition)) {
-    return res.status(400).json({ error: 'Invalid competition' });
-  }
-
   next();
 };
 

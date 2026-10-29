@@ -30,6 +30,8 @@ const {
 const { assertCompetitionHasCommissioners } = require('../utils/commissionerCoverage');
 const { parsePagination } = require('../utils/pagination');
 const { isPlayedGame } = require('../utils/nominationExpiry');
+const { validateGameData } = require('../middleware/basketballGameMiddleware');
+const { gamePayloadError } = require('../utils/gamePayload');
 
 const toDateKey = (value) => {
   const date = new Date(value);
@@ -79,7 +81,7 @@ const activeAssigneeIds = (game) => {
 router.use(authenticateUser);
 
 // CREATE - Create a new basketball game (Admin only)
-router.post('/', async (req, res) => {
+router.post('/', validateGameData, async (req, res) => {
   try {
     const { homeTeam, awayTeam, date, time, venue, competition, notes } = req.body;
 
@@ -91,13 +93,6 @@ router.post('/', async (req, res) => {
       await assertCompetitionHasCommissioners(competition);
     } catch (coverageError) {
       return res.status(coverageError.statusCode || 400).json({ error: coverageError.message });
-    }
-
-    // Validate required fields
-    if (!homeTeam || !awayTeam || !date || !time || !venue || !competition) {
-      return res.status(400).json({ 
-        error: 'Missing required fields: homeTeam, awayTeam, date, time, venue, competition' 
-      });
     }
 
     // Check for duplicate games (same teams, same date, same time)
@@ -377,6 +372,25 @@ router.put('/:id', async (req, res) => {
     const previousTime = game.time;
 
     const { homeTeam, awayTeam, date, time, venue, competition, status, notes, score } = req.body;
+
+    const payloadError = gamePayloadError(
+      {
+        homeTeam: homeTeam ?? game.homeTeam,
+        awayTeam: awayTeam ?? game.awayTeam,
+        date: date ?? game.date,
+        time: time ?? game.time,
+        venue: venue ?? game.venue,
+        competition: competition ?? game.competition
+      },
+      {
+        requireAll: true,
+        allowPastDate: isAdminUser(req.user),
+        allowLegacyCompetition: true
+      }
+    );
+    if (payloadError) {
+      return res.status(400).json({ error: payloadError });
+    }
 
     if (competition && competition !== game.competition) {
       try {
