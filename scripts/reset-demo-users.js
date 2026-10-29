@@ -88,6 +88,10 @@ newUsers.push(
 const isAdmin = (user) => isAdminUser(user);
 
 async function run() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('reset-demo-users refuses NODE_ENV=production. Rotate demo passwords in Atlas instead.');
+  }
+
   await mongoose.connect(process.env.MONGO_URI, {
     serverApi: { version: '1', strict: true, deprecationErrors: true }
   });

@@ -45,20 +45,25 @@ Putni nalozi i računi spremaju se u MongoDB GridFS (kolekcije `travelOrders.fil
 
 Trenutni API: `https://uhks-production.up.railway.app`.
 
+`NODE_ENV=production` (Railway to obično sam postavi). API **neće slušati port** dok checklist nije ispunjen — pogledaj log deploya.
+
 Obavezno:
 
 | Varijabla | Vrijednost |
 |---|---|
+| `NODE_ENV` | `production` |
 | `MONGO_URI` | Atlas (ili Railway Mongo) |
-| `JWT_SECRET` | duga slučajna tajna, ne `change-me` |
-| `CORS_ORIGIN` | točan origin frontenda, npr. `https://tvoja-app.up.railway.app` (zarezom više origin-a) |
+| `JWT_SECRET` | najmanje 16 znakova, slučajna tajna, ne `change-me` |
+| `CORS_ORIGIN` | HTTPS origin **frontenda** (ne API), npr. `https://tvoja-app.up.railway.app` (zarezom više origin-a, bez `/` na kraju) |
 | `FRONTEND_URL` | isti frontend, bez trailing slasha — za invite linkove |
-| `COOKIE_SECURE` | `true` |
-| `COOKIE_SAMESITE` | `none` (frontend i API na različitim hostovima) |
+| `COOKIE_SECURE` | `true` ili izostavi (default u production je true) |
+| `COOKIE_SAMESITE` | `none` ili izostavi (frontend i API na različitim hostovima) |
 | `SMTP_MIN_INTERVAL_MS` | `0` ili izostavi (default je 0). **Ne šalji Mailtrap delay 1100 ms na Railway.** |
 | `TRUST_PROXY` | ostavi prazno u produkciji (default 1 hop za Railway). Lokalno se ne postavlja. |
 
 Mail je opcionalan. Bez `SMTP_HOST` + `MAIL_FROM` nominacije i dalje rade u aplikaciji, samo se mail ne šalje. Kad ide pravi SMTP (Resend, Postmark, 365), postavi host/user/pass/`MAIL_FROM` i ostavi interval na 0.
+
+Demo nalozi (`sudac1` / `Lozinka123!`, …) su samo za lokalni seed. U produkcijskom Atlasu ih rotiraj ili obriši. `scripts/reset-demo-users.js` ne radi kad je `NODE_ENV=production`.
 
 `vercel.json` nije u upotrebi.
 

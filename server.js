@@ -17,6 +17,7 @@ const { startNominationExpiryJob } = require('./utils/nominationExpiry');
 const { configureTrustProxy } = require('./utils/trustProxy');
 const { configureSecurityHeaders } = require('./utils/securityHeaders');
 const { sendHealth } = require('./utils/health');
+const { assertProductionEnv } = require('./utils/productionEnv');
 
 const app = express();
 configureTrustProxy(app);
@@ -58,6 +59,7 @@ app.use('/api/catalog', catalogRoutes);
 const PORT = process.env.PORT || 3000;
 
 const start = async () => {
+  assertProductionEnv();
   await connectDB();
   await seedCatalog();
   await seedDisplayIds();
