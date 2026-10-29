@@ -190,7 +190,7 @@ router.get('/referee/:refereeId/date/:date', async (req, res) => {
 
     res.json(games);
   } catch (error) {
-    console.error('Backend error - Get games by referee and date:', error);
+    console.error('Get games by referee and date:', error.message);
     res.status(500).json({ error: 'Failed to fetch referee games' });
   }
 });
@@ -215,7 +215,7 @@ router.get('/schedule/:date', async (req, res) => {
 
     res.json(games);
   } catch (error) {
-    console.error('Backend error - Get games on date:', error);
+    console.error('Get games on date:', error.message);
     res.status(500).json({ error: 'Failed to fetch games for date' });
   }
 });
@@ -624,7 +624,6 @@ router.post('/:id/assign-referee', async (req, res) => {
         };
 
         await Notification.createGameAssignmentNotification(userId, game._id, gameDetails);
-        console.log(`Game assignment notification created for user ${userId}`);
       } catch (notificationError) {
         console.error('Error creating game assignment notification:', notificationError);
       }
@@ -822,7 +821,6 @@ router.patch('/:id/respond-assignment', async (req, res) => {
           response === 'Rejected' ? rejectionReason : undefined
         )
       ));
-      console.log(`Assignment response notifications created for ${recipientIds.length} recipients`);
     } catch (notificationError) {
       console.error('Error creating assignment response notification:', notificationError);
       // Don't fail the response if notification fails

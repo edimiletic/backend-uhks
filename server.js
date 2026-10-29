@@ -18,24 +18,18 @@ const { configureTrustProxy } = require('./utils/trustProxy');
 const { configureSecurityHeaders } = require('./utils/securityHeaders');
 const { sendHealth } = require('./utils/health');
 const { assertProductionEnv } = require('./utils/productionEnv');
+const { parseAllowedOrigins, rejectDisallowedOrigin } = require('./utils/corsAllowlist');
+const { requestLogger, errorHandler } = require('./utils/requestLog');
 
 const app = express();
 configureTrustProxy(app);
 configureSecurityHeaders(app);
+app.use(requestLogger);
 
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:4200,http://127.0.0.1:4200')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
+const allowedOrigins = parseAllowedOrigins();
+app.use(rejectDisallowedOrigin(allowedOrigins));
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow non-browser tools (no Origin header) and configured frontends
-    if (!origin || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    return callback(new Error('Not allowed by CORS'));
-  },
+  origin: (origin, callback) => callback(null, !origin || allowedOrigins.includes(origin)),
   credentials: true
 }));
 app.use(express.json());
@@ -55,6 +49,7 @@ app.use('/api/exams', examRoutes);
 app.use('/api/notifications', notificationRoutes)
 app.use('/api/catalog', catalogRoutes);
 
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 

@@ -69,6 +69,8 @@ Demo nalozi (`sudac1` / `Lozinka123!`, …) su samo za lokalni seed. U produkcij
 
 Helmet na API-ju šalje `nosniff` i slične headere. CSP i COEP su isključeni (JSON API, odvojeni frontend). HSTS samo kad je `NODE_ENV=production`.
 
+Svaki odgovor ima `X-Request-Id`. Request log je jedan JSON red (`level`, `method`, `path`, `status`, `ms`); `status >= 500` ide na `console.error` (grep za alarm). `GET /health` se ne logira. Tuđi `Origin` vraća JSON 403, ne Express Error.
+
 ## Health
 
 `GET /health` → `{ "ok": true }` i status 200 samo kad je Mongo spojen (`readyState === 1`). Inače 503 `{ "ok": false }`. API sluša port tek nakon uspješnog `connectDB`.

@@ -112,28 +112,13 @@ router.get('/attempts', async (req, res) => {
       .populate('examId', 'title')
       .sort({ completedAt: -1 });
 
-    // Filter out corrupt attempts and log them
-    const validAttempts = attempts.filter(attempt => {
+    const validAttempts = attempts.filter((attempt) => {
       const hasValidScore = typeof attempt.score === 'number' && attempt.score >= 0;
       const hasValidDate = attempt.completedAt && attempt.completedAt instanceof Date;
       const hasValidPassed = typeof attempt.passed === 'boolean';
-      
-      const isValid = hasValidScore && hasValidDate && hasValidPassed;
-      
-      if (!isValid) {
-        console.log('Filtering out invalid attempt:', {
-          id: attempt._id,
-          score: attempt.score,
-          completedAt: attempt.completedAt,
-          passed: attempt.passed,
-          examId: attempt.examId
-        });
-      }
-      
-      return isValid;
+      return hasValidScore && hasValidDate && hasValidPassed;
     });
 
-    console.log(`Returning ${validAttempts.length} valid attempts out of ${attempts.length} total`);
     res.json(validAttempts);
   } catch (error) {
     console.error('Get exam attempts error:', error);
