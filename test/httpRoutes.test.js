@@ -24,7 +24,9 @@ const original = {
   gameFindById: BasketballGame.findById,
   examFindById: Exam.findById,
   examFindOne: Exam.findOne,
-  expenseFindById: TravelExpense.findById
+  expenseFindById: TravelExpense.findById,
+  expenseFind: TravelExpense.find,
+  expenseCount: TravelExpense.countDocuments
 };
 
 const usersById = new Map();
@@ -130,12 +132,36 @@ function stubModels() {
   TravelExpense.findById = () => ({
     populate: async () => null
   });
+  TravelExpense.countDocuments = async () => 0;
+  TravelExpense.find = () => expenseQuery([]);
+}
+
+function expenseQuery(docs) {
+  const query = {
+    populate() {
+      return query;
+    },
+    sort() {
+      return query;
+    },
+    skip() {
+      return query;
+    },
+    limit() {
+      return query;
+    },
+    then(resolve, reject) {
+      return Promise.resolve(docs).then(resolve, reject);
+    }
+  };
+  return query;
 }
 
 describe('httpRoutes', { concurrency: 1 }, () => {
   let referee;
   let otherReferee;
   let commissioner;
+  let admin;
   let server;
   let url;
 
@@ -152,6 +178,10 @@ describe('httpRoutes', { concurrency: 1 }, () => {
     commissioner = makeUser({
       username: 'http-psluz',
       roles: [{ name: 'Povjerenik za službene osobe', competitions: [] }]
+    });
+    admin = makeUser({
+      username: 'http-admin',
+      roles: [{ name: 'Admin', competitions: [] }]
     });
     stubModels();
     const listening = await listen(app());
@@ -171,6 +201,8 @@ describe('httpRoutes', { concurrency: 1 }, () => {
     Exam.findById = original.examFindById;
     Exam.findOne = original.examFindOne;
     TravelExpense.findById = original.expenseFindById;
+    TravelExpense.find = original.expenseFind;
+    TravelExpense.countDocuments = original.expenseCount;
     await close(server);
   });
 
@@ -323,5 +355,25 @@ describe('httpRoutes', { concurrency: 1 }, () => {
       user: otherReferee
     });
     assert.equal(stolen.status, 403);
+  });
+
+  it('liste putnih naloga su stranice, limit ne može biti veći od 100', async () => {
+    const own = { _id: new mongoose.Types.ObjectId(), userId: referee._id, state: 'Predano' };
+    TravelExpense.countDocuments = async () => 1;
+    TravelExpense.find = () => expenseQuery([own]);
+
+    const mine = await request(url, '/api/travel-expense/my?page=1&limit=9999', { user: referee });
+    assert.equal(mine.status, 200);
+    assert.equal(mine.body.expenses.length, 1);
+    assert.equal(mine.body.total, 1);
+    assert.equal(mine.body.currentPage, 1);
+
+    const forbidden = await request(url, '/api/travel-expense', { user: referee });
+    assert.equal(forbidden.status, 403);
+
+    const listed = await request(url, '/api/travel-expense?limit=20', { user: admin });
+    assert.equal(listed.status, 200);
+    assert.ok(Array.isArray(listed.body.expenses));
+    assert.equal(listed.body.total, 1);
   });
 });

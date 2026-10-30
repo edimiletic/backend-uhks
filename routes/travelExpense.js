@@ -10,10 +10,12 @@ const {
   isAdminUser,
   canManageCalendar,
   canNominateOfficials,
+  getManagedCompetitions,
   userHasRole,
   GAME_ASSIGNMENT_ROLES,
   canonicalCompetition
 } = require('../config/roles');
+const { parsePagination } = require('../utils/pagination');
 const {
   upload,
   TEMPLATE_PATH,
@@ -79,6 +81,48 @@ const handleUpload = (req, res, next) => {
 };
 
 const parseUsedHighway = (value) => value === true || value === 'true' || value === '1';
+
+const NONE_MATCH = { _id: { $in: [] } };
+
+const listPopulate = (query, userFields) =>
+  query
+    .populate('userId', userFields)
+    .populate('gameId', 'homeTeam awayTeam date time venue competition')
+    .populate('reviewedBy', 'name surname');
+
+const sendExpensePage = async (res, filter, query, userFields) => {
+  const { page, limit, skip } = parsePagination(query);
+  const total = await TravelExpense.countDocuments(filter);
+  const expenses = await listPopulate(
+    TravelExpense.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    userFields
+  );
+  res.json({
+    expenses,
+    total,
+    currentPage: page,
+    totalPages: Math.ceil(total / limit)
+  });
+};
+
+const supervisedExpenseFilter = async (user) => {
+  if (isAdminUser(user)) {
+    return {};
+  }
+  const competitions = getManagedCompetitions(user);
+  if (competitions === null) {
+    return {};
+  }
+  if (!competitions.length) {
+    return NONE_MATCH;
+  }
+  const games = await BasketballGame.find({ competition: { $in: competitions } }).select('_id').lean();
+  const gameIds = (games || []).map((game) => game._id).filter(Boolean);
+  if (!gameIds.length) {
+    return NONE_MATCH;
+  }
+  return { gameId: { $in: gameIds } };
+};
 
 router.get('/template', (_req, res) => {
   if (!fs.existsSync(TEMPLATE_PATH)) {
@@ -228,12 +272,7 @@ router.post('/', handleUpload, async (req, res) => {
 
 router.get('/my', async (req, res) => {
   try {
-    const expenses = await TravelExpense.find({ userId: req.user._id })
-      .populate('userId', 'name surname')
-      .populate('gameId', 'homeTeam awayTeam date time venue competition')
-      .populate('reviewedBy', 'name surname')
-      .sort({ createdAt: -1 });
-    res.json(expenses);
+    await sendExpensePage(res, { userId: req.user._id }, req.query, 'name surname');
   } catch (error) {
     console.error('Get user travel expenses error:', error);
     res.status(500).json({ error: 'Neuspješno dohvaćanje putnih naloga.' });
@@ -242,14 +281,8 @@ router.get('/my', async (req, res) => {
 
 router.get('/', requireRole(['Admin', 'Povjerenik natjecanja', 'Povjerenik za službene osobe']), async (req, res) => {
   try {
-    const expenses = await TravelExpense.find({})
-      .populate('userId', 'name surname role roles')
-      .populate('gameId', 'homeTeam awayTeam date time venue competition')
-      .populate('reviewedBy', 'name surname')
-      .sort({ createdAt: -1 });
-
-    const visible = expenses.filter((expense) => canAccessTravelExpense(req.user, expense));
-    res.json(visible);
+    const filter = await supervisedExpenseFilter(req.user);
+    await sendExpensePage(res, filter, req.query, 'name surname role roles');
   } catch (error) {
     console.error('Get all travel expenses error:', error);
     res.status(500).json({ error: 'Neuspješno dohvaćanje putnih naloga.' });
