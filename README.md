@@ -13,7 +13,7 @@ Angular na `http://localhost:4200` šalje kolačić sesije (`SameSite=Lax`). COR
 
 ## Docker
 
-API čita **isti** `.env` kao lokalni `npm run dev` — uključujući `MONGO_URI` (Atlas ili lokalni Mongo). Demo nalozi (`sudac1` / `Lozinka123!`, …) su zato isti.
+API čita **isti** `.env` kao lokalni `npm run dev` — uključujući `MONGO_URI` (Atlas ili lokalni Mongo). Ako je to produkcijski Atlas, nemoj ostavljati demo lozinku; pokreni `npm run disable-demo-users`.
 
 Samo API (baza ostaje tvoja postojeća):
 
@@ -63,7 +63,7 @@ Obavezno:
 
 Mail je opcionalan. Bez `SMTP_HOST` + `MAIL_FROM` nominacije i dalje rade u aplikaciji, samo se mail ne šalje. Kad ide pravi SMTP (Resend, Postmark, 365), postavi host/user/pass/`MAIL_FROM` i ostavi interval na 0.
 
-Demo nalozi (`sudac1` / `Lozinka123!`, …) su samo za lokalni seed. U produkcijskom Atlasu ih rotiraj ili obriši. `scripts/reset-demo-users.js` ne radi kad je `NODE_ENV=production`.
+Demo seed (`scripts/reset-demo-users.js`) ne radi u `NODE_ENV=production` ni na Atlasu bez `ALLOW_DEMO_SEED=1`. Da `Lozinka123!` prestane raditi na postojećim nalogima: `npm run disable-demo-users` (ista `MONGO_URI` kao API). Admin ostaje netaknut; suci se ponovo pozivaju invite linkom.
 
 `vercel.json` nije u upotrebi.
 
