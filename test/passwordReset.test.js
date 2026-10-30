@@ -15,10 +15,11 @@ describe('passwordReset', () => {
     assert.equal(a.length, 64);
   });
 
-  it('odbija kratku lozinku', () => {
-    assert.match(passwordPolicyError(''), /8/);
-    assert.match(passwordPolicyError('1234567'), /8/);
-    assert.equal(passwordPolicyError('12345678'), null);
+  it('odbija slabu lozinku', () => {
+    assert.match(passwordPolicyError(''), /10/);
+    assert.match(passwordPolicyError('123456789'), /10/);
+    assert.match(passwordPolicyError('samoslovaaa'), /10/);
+    assert.equal(passwordPolicyError('Lozinka123'), null);
   });
 
   it('sastavlja frontend URL za set-password', () => {

@@ -76,5 +76,6 @@ module.exports = {
   sessionCookieOptions,
   setSessionCookie,
   clearSessionCookie,
+  parseCookies,
   readSessionToken
 };

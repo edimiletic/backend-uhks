@@ -19,6 +19,7 @@ const { configureSecurityHeaders } = require('./utils/securityHeaders');
 const { sendHealth } = require('./utils/health');
 const { assertProductionEnv } = require('./utils/productionEnv');
 const { parseAllowedOrigins, rejectDisallowedOrigin } = require('./utils/corsAllowlist');
+const { csrfProtection } = require('./utils/csrf');
 const { requestLogger, errorHandler } = require('./utils/requestLog');
 
 const app = express();
@@ -30,9 +31,11 @@ const allowedOrigins = parseAllowedOrigins();
 app.use(rejectDisallowedOrigin(allowedOrigins));
 app.use(cors({
   origin: (origin, callback) => callback(null, !origin || allowedOrigins.includes(origin)),
-  credentials: true
+  credentials: true,
+  exposedHeaders: ['X-CSRF-Token', 'X-Request-Id']
 }));
 app.use(express.json());
+app.use(csrfProtection);
 
 app.get('/', (req, res) => {
   res.send('🌍 API is running...');

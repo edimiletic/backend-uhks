@@ -10,6 +10,7 @@ const TravelExpense = require('../models/TravelExpense');
 const { Exam } = require('../models/Exams');
 const JWT_SECRET = require('../config/jwt');
 const { COOKIE_NAME } = require('../utils/sessionCookie');
+const { CSRF_COOKIE, csrfProtection } = require('../utils/csrf');
 const { getGamesVisibilityFilter } = require('../config/roles');
 
 const authRoutes = require('../routes/auth');
@@ -52,6 +53,7 @@ function close(server) {
 function app() {
   const instance = express();
   instance.use(express.json());
+  instance.use(csrfProtection);
   instance.use('/api', authRoutes);
   instance.use('/api/basketball-games', basketballGameRoutes);
   instance.use('/api/exams', examRoutes);
@@ -91,12 +93,23 @@ function sessionCookie(user) {
 }
 
 async function request(url, path, { method = 'GET', user, json, headers = {} } = {}) {
+  const mutating = !['GET', 'HEAD', 'OPTIONS'].includes(method);
+  const csrfToken = 'csrf-test-token';
+  const cookies = [];
+  if (user) {
+    cookies.push(sessionCookie(user));
+    if (mutating) {
+      cookies.push(`${CSRF_COOKIE}=${csrfToken}`);
+    }
+  }
   const response = await fetch(`${url}${path}`, {
     method,
     headers: {
       Connection: 'close',
+      Origin: 'http://localhost:4200',
       ...(json ? { 'Content-Type': 'application/json' } : {}),
-      ...(user ? { Cookie: sessionCookie(user) } : {}),
+      ...(cookies.length ? { Cookie: cookies.join('; ') } : {}),
+      ...(user && mutating ? { 'X-CSRF-Token': csrfToken } : {}),
       ...headers
     },
     body: json ? JSON.stringify(json) : undefined

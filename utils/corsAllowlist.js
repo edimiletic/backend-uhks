@@ -25,11 +25,9 @@ const rejectDisallowedOrigin = (allowedOrigins) => (req, res, next) => {
 
   if (MUTATING.has(req.method) && req.headers.cookie) {
     const referer = req.headers.referer || req.headers.referrer;
-    if (referer) {
-      const refOrigin = originFromReferer(referer);
-      if (!refOrigin || !allowedOrigins.includes(refOrigin)) {
-        return res.status(403).json({ error: 'Not allowed by CORS' });
-      }
+    const refOrigin = originFromReferer(referer);
+    if (!refOrigin || !allowedOrigins.includes(refOrigin)) {
+      return res.status(403).json({ error: 'Not allowed by CORS' });
     }
   }
 

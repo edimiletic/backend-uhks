@@ -90,6 +90,25 @@ describe('requestLog', () => {
     }
   });
 
+  it('odbija mutating bez Origin i Referer kad ima kolačić', async () => {
+    const log = console.log;
+    console.log = () => {};
+    const { server, url } = await listen(app());
+    try {
+      const response = await fetch(`${url}/ok`, {
+        method: 'POST',
+        headers: {
+          Cookie: 'uhks_session=x',
+          Connection: 'close'
+        }
+      });
+      assert.equal(response.status, 403);
+    } finally {
+      console.log = log;
+      await close(server);
+    }
+  });
+
   it('odbija tuđi Origin s JSON 403', async () => {
     const log = console.log;
     console.log = () => {};

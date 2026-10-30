@@ -21,9 +21,13 @@ const frontendBaseUrl = () =>
 const resetUrlForToken = (token) =>
   `${frontendBaseUrl()}/set-password?token=${encodeURIComponent(token)}`;
 
+const PASSWORD_MIN_LENGTH = 10;
+const PASSWORD_POLICY_MESSAGE = 'Lozinka mora imati najmanje 10 znakova, slovo i broj.';
+
 const passwordPolicyError = (password) => {
-  if (!password || String(password).length < 8) {
-    return 'Lozinka mora imati najmanje 8 znakova.';
+  const value = String(password || '');
+  if (value.length < PASSWORD_MIN_LENGTH || !/\p{L}/u.test(value) || !/\d/.test(value)) {
+    return PASSWORD_POLICY_MESSAGE;
   }
   return null;
 };
@@ -62,6 +66,8 @@ module.exports = {
   createResetToken,
   frontendBaseUrl,
   resetUrlForToken,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_POLICY_MESSAGE,
   passwordPolicyError,
   hashUnusablePassword,
   issuePasswordReset,

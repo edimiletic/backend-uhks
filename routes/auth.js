@@ -9,6 +9,7 @@ const { ipLimiter, usernameLimiter } = require('../middleware/loginRateLimit');
 const noStore = require('../middleware/noStore');
 const JWT_SECRET = require('../config/jwt');
 const { setSessionCookie, clearSessionCookie, readSessionToken } = require('../utils/sessionCookie');
+const { ensureCsrf, clearCsrfCookie } = require('../utils/csrf');
 const { signSession } = require('../utils/sessionAuth');
 
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync('timing-dummy-not-a-password', 10);
@@ -37,6 +38,7 @@ router.post('/login', noStore, ipLimiter, usernameLimiter, async (req, res) => {
     }
 
     setSessionCookie(res, signSession(user));
+    ensureCsrf(req, res);
 
     const publicUser = user.toObject();
     res.json({
@@ -67,6 +69,7 @@ router.post('/logout', noStore, async (req, res) => {
     }
   }
   clearSessionCookie(res);
+  clearCsrfCookie(res);
   res.json({ message: 'Logged out' });
 });
 
@@ -150,7 +153,8 @@ router.post('/change-password', authenticateUser, async (req, res) => {
 
 // Get current logged-in user
 router.get('/me', noStore, authenticateUser, (req, res) => {
-  res.json(req.user); // user is attached by middleware
+  ensureCsrf(req, res);
+  res.json(req.user);
 });
 
 
