@@ -49,6 +49,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  tokenVersion: {
+    type: Number,
+    default: 0
+  },
   passwordResetTokenHash: {
     type: String,
     default: undefined
@@ -120,6 +124,7 @@ const serializeUser = (ret) => {
   delete ret.password;
   delete ret.passwordResetTokenHash;
   delete ret.passwordResetExpires;
+  delete ret.tokenVersion;
   return ret;
 };
 

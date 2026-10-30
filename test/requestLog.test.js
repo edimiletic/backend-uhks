@@ -25,6 +25,7 @@ function app() {
   instance.use(rejectDisallowedOrigin(['http://localhost:4200']));
   instance.get('/health', (_req, res) => res.json({ ok: true }));
   instance.get('/ok', (_req, res) => res.json({ ok: true }));
+  instance.post('/ok', (_req, res) => res.json({ ok: true }));
   instance.get('/boom', () => {
     throw new Error('secret stack');
   });
@@ -65,6 +66,26 @@ describe('requestLog', () => {
     } finally {
       console.log = log;
       console.error = err;
+      await close(server);
+    }
+  });
+
+  it('odbija mutating Referer kad ima kolačić', async () => {
+    const log = console.log;
+    console.log = () => {};
+    const { server, url } = await listen(app());
+    try {
+      const response = await fetch(`${url}/ok`, {
+        method: 'POST',
+        headers: {
+          Cookie: 'uhks_session=x',
+          Referer: 'https://evil.example/page',
+          Connection: 'close'
+        }
+      });
+      assert.equal(response.status, 403);
+    } finally {
+      console.log = log;
       await close(server);
     }
   });

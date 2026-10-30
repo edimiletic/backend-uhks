@@ -209,6 +209,10 @@ router.post('/submit', async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
+    if (exam.expiresAt && exam.expiresAt.getTime() <= Date.now()) {
+      return res.status(404).json({ error: 'Vrijeme za ovaj ispit je isteklo.' });
+    }
+
     if (answers.length !== exam.questions.length) {
       return res.status(400).json({ error: 'Invalid number of answers' });
     }

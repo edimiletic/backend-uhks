@@ -91,6 +91,10 @@ async function run() {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('reset-demo-users refuses NODE_ENV=production. Rotate demo passwords in Atlas instead.');
   }
+  const mongoUri = String(process.env.MONGO_URI || '');
+  if (mongoUri.includes('mongodb.net') && process.env.ALLOW_DEMO_SEED !== '1') {
+    throw new Error('reset-demo-users refuses Atlas unless ALLOW_DEMO_SEED=1.');
+  }
 
   await mongoose.connect(process.env.MONGO_URI, {
     serverApi: { version: '1', strict: true, deprecationErrors: true }

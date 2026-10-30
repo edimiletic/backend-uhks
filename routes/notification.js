@@ -29,7 +29,8 @@ router.get('/', async (req, res) => {
 // GET - Get all notifications with pagination
 router.get('/all', async (req, res) => {
   try {
-    const { type, unread } = req.query;
+    const type = typeof req.query.type === 'string' ? req.query.type.trim() : '';
+    const unread = typeof req.query.unread === 'string' ? req.query.unread : '';
     const { page, limit, skip } = parsePagination(req.query);
     const filter = { userId: req.user._id };
     if (type) {

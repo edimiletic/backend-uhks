@@ -65,6 +65,7 @@ function makeUser({ username, roles }) {
     name: username,
     surname: 'Test',
     password: passwordHash,
+    tokenVersion: 0,
     roles,
     toObject() {
       const copy = { ...this };
@@ -80,7 +81,7 @@ function makeUser({ username, roles }) {
 
 function sessionCookie(user) {
   const token = jwt.sign(
-    { id: user._id, username: user.username, role: user.roles[0].name },
+    { id: user._id, username: user.username, role: user.roles[0].name, v: user.tokenVersion || 0 },
     JWT_SECRET,
     { expiresIn: '1h' }
   );
@@ -191,7 +192,7 @@ describe('httpRoutes', { concurrency: 1 }, () => {
   });
 
   it('Bearer ne ulazi, kolačić da', async () => {
-    const token = jwt.sign({ id: referee._id }, JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ id: referee._id, v: 0 }, JWT_SECRET, { expiresIn: '1h' });
     const bearer = await request(url, '/api/me', {
       headers: { Authorization: `Bearer ${token}` }
     });

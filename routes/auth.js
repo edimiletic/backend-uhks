@@ -5,12 +5,13 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const rateLimit = require('express-rate-limit');
-const { normalizeRoleAssignments, pickPrimaryRole } = require('../config/roles');
 const { ipLimiter, usernameLimiter } = require('../middleware/loginRateLimit');
 const noStore = require('../middleware/noStore');
-
 const JWT_SECRET = require('../config/jwt');
-const { setSessionCookie, clearSessionCookie } = require('../utils/sessionCookie');
+const { setSessionCookie, clearSessionCookie, readSessionToken } = require('../utils/sessionCookie');
+const { signSession } = require('../utils/sessionAuth');
+
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('timing-dummy-not-a-password', 10);
 
 const INVALID_LOGIN = 'Neispravno korisničko ime ili lozinka';
 
@@ -26,6 +27,7 @@ router.post('/login', noStore, ipLimiter, usernameLimiter, async (req, res) => {
     const user = await User.findOne({ username });
     const passwordHash = user?.password || user?._doc?.password;
     if (!user || !passwordHash) {
+      await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
       return res.status(401).json({ error: INVALID_LOGIN });
     }
 
@@ -34,22 +36,9 @@ router.post('/login', noStore, ipLimiter, usernameLimiter, async (req, res) => {
       return res.status(401).json({ error: INVALID_LOGIN });
     }
 
-    // Create token with longer expiry and user info
-    const token = jwt.sign(
-      { 
-        id: user._id,
-        username: user.username,
-        role: pickPrimaryRole(normalizeRoleAssignments(user))
-      }, 
-      JWT_SECRET, 
-      { expiresIn: '24h' }
-    );
+    setSessionCookie(res, signSession(user));
 
     const publicUser = user.toObject();
-    delete publicUser.password;
-
-    setSessionCookie(res, token);
-
     res.json({
       user: {
         ...publicUser,
@@ -65,7 +54,18 @@ router.post('/login', noStore, ipLimiter, usernameLimiter, async (req, res) => {
 
 const authenticateUser = require('../middleware/authMiddleware');
 
-router.post('/logout', noStore, (_req, res) => {
+router.post('/logout', noStore, async (req, res) => {
+  const token = readSessionToken(req);
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      if (decoded?.id) {
+        await User.updateOne({ _id: decoded.id }, { $inc: { tokenVersion: 1 } });
+      }
+    } catch {
+      // Cookie still gets cleared.
+    }
+  }
   clearSessionCookie(res);
   res.json({ message: 'Logged out' });
 });
@@ -104,6 +104,7 @@ router.post('/reset-password', resetLimiter, async (req, res) => {
     }
 
     user.password = await bcrypt.hash(password, 10);
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     clearPasswordReset(user);
     await user.save();
     return res.json({ message: 'Lozinka je postavljena. Možeš se prijaviti.' });
@@ -136,8 +137,10 @@ router.post('/change-password', authenticateUser, async (req, res) => {
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     clearPasswordReset(user);
     await user.save();
+    setSessionCookie(res, signSession(user));
     return res.json({ message: 'Lozinka je promijenjena.' });
   } catch (err) {
     console.error('Change password error:', err);

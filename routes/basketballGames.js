@@ -1,5 +1,6 @@
 // backend/routes/basketballGame.js
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const BasketballGame = require('../models/BasketballGames');
 const User = require('../models/User');
@@ -11,6 +12,7 @@ const {
   canAssignGameRole,
   isWithinNominationCap,
   getGamesVisibilityFilter,
+  getManagedCompetitions,
   canViewRefereeSchedule,
   canAccessGame,
   userHasRole,
@@ -29,6 +31,7 @@ const {
 } = require('../config/roles');
 const { assertCompetitionHasCommissioners } = require('../utils/commissionerCoverage');
 const { parsePagination } = require('../utils/pagination');
+const { scalarString, containsRegex } = require('../utils/queryScalar');
 const { isPlayedGame } = require('../utils/nominationExpiry');
 const { validateGameData } = require('../middleware/basketballGameMiddleware');
 const { gamePayloadError } = require('../utils/gamePayload');
@@ -219,7 +222,11 @@ router.get('/schedule/:date', async (req, res) => {
 // READ - Get all basketball games with optional filters
 router.get('/', async (req, res) => {
   try {
-    const { date, competition, status, homeTeam, awayTeam } = req.query;
+    const date = scalarString(req.query.date);
+    const competition = scalarString(req.query.competition);
+    const status = scalarString(req.query.status);
+    const homeTeam = scalarString(req.query.homeTeam);
+    const awayTeam = scalarString(req.query.awayTeam);
     const { page, limit, skip } = parsePagination(req.query);
     
     // Build filter object
@@ -227,15 +234,23 @@ router.get('/', async (req, res) => {
     
     if (date) {
       const queryDate = new Date(date);
-      filter.date = {
-        $gte: new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate()),
-        $lt: new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate() + 1)
-      };
+      if (!Number.isNaN(queryDate.getTime())) {
+        filter.date = {
+          $gte: new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate()),
+          $lt: new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate() + 1)
+        };
+      }
     }
-    if (competition) filter.competition = new RegExp(competition, 'i');
-    if (status) filter.status = status;
-    if (homeTeam) filter.homeTeam = new RegExp(homeTeam, 'i');
-    if (awayTeam) filter.awayTeam = new RegExp(awayTeam, 'i');
+    if (competition) {
+      filter.competition = canonicalCompetition(competition) || competition;
+    }
+    if (status && ['Scheduled', 'Ongoing', 'Completed', 'Cancelled'].includes(status)) {
+      filter.status = status;
+    }
+    const homeMatch = containsRegex(homeTeam);
+    const awayMatch = containsRegex(awayTeam);
+    if (homeMatch) filter.homeTeam = homeMatch;
+    if (awayMatch) filter.awayTeam = awayMatch;
 
     Object.assign(filter, getGamesVisibilityFilter(req.user));
 
@@ -271,7 +286,10 @@ router.get('/rejection-counts', async (req, res) => {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
-    const { startDate, endDate, role, competition } = req.query;
+    const startDate = scalarString(req.query.startDate);
+    const endDate = scalarString(req.query.endDate);
+    const role = scalarString(req.query.role);
+    const competition = scalarString(req.query.competition);
     const match = {};
 
     if (role && GAME_ASSIGNMENT_ROLES.includes(role)) {
@@ -281,17 +299,24 @@ router.get('/rejection-counts', async (req, res) => {
     if (startDate || endDate) {
       match.rejectedAt = {};
       if (startDate) {
-        match.rejectedAt.$gte = new Date(`${String(startDate).slice(0, 10)}T00:00:00.000Z`);
+        match.rejectedAt.$gte = new Date(`${startDate.slice(0, 10)}T00:00:00.000Z`);
       }
       if (endDate) {
-        match.rejectedAt.$lte = new Date(`${String(endDate).slice(0, 10)}T23:59:59.999Z`);
+        match.rejectedAt.$lte = new Date(`${endDate.slice(0, 10)}T23:59:59.999Z`);
       }
     }
 
+    const managed = getManagedCompetitions(req.user);
+    let allowed = managed === null ? null : managed.slice();
     if (competition) {
-      const games = await BasketballGame.find({
-        competition: canonicalCompetition(competition) || competition
-      }).select('_id');
+      const wanted = canonicalCompetition(competition) || competition;
+      allowed = allowed == null ? [wanted] : allowed.filter((name) => name === wanted);
+    }
+    if (allowed && !allowed.length) {
+      return res.json({ counts: {} });
+    }
+    if (allowed) {
+      const games = await BasketballGame.find({ competition: { $in: allowed } }).select('_id');
       match.gameId = { $in: games.map((game) => game._id) };
     }
 
@@ -967,19 +992,26 @@ router.post('/:id/colleague-replacement', async (req, res) => {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
-    const removedUserIds = (req.body.removedUserIds || []).map(String);
-    const addedUserIds = (req.body.addedUserIds || []).map(String);
+    const removedUserIds = (req.body.removedUserIds || [])
+      .map(String)
+      .filter((id) => mongoose.Types.ObjectId.isValid(id));
+    const addedUserIds = (req.body.addedUserIds || [])
+      .map(String)
+      .filter((id) => mongoose.Types.ObjectId.isValid(id));
     if (!removedUserIds.length || !addedUserIds.length) {
       return res.json({ notified: 0 });
     }
 
     const users = await User.find({
       _id: { $in: [...removedUserIds, ...addedUserIds] }
-    }).select('name surname');
+    }).select('name surname role roles');
 
     const displayName = (userId) => {
       const user = users.find((item) => String(item._id) === String(userId));
-      return user ? `${user.name} ${user.surname}` : '';
+      if (!user || !GAME_ASSIGNMENT_ROLES.some((role) => userHasRole(user, role))) {
+        return '';
+      }
+      return `${user.name} ${user.surname}`;
     };
 
     const removedNames = removedUserIds.map(displayName).filter(Boolean).join(', ');

@@ -6,6 +6,7 @@ const User = require('../models/User'); // Add User import
 const authenticateUser = require('../middleware/authMiddleware');
 const { canSeeAllGames, isAdminUser, getSupervisedAbsencePersonalCodes, getRoleNames } = require('../config/roles');
 const { parsePagination } = require('../utils/pagination');
+const { scalarString } = require('../utils/queryScalar');
 
 // Apply authentication middleware to all routes
 router.use(authenticateUser);
@@ -95,14 +96,22 @@ router.get('/', async (req, res) => {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
-    const { userPersonalCode, startDate, endDate } = req.query;
+    const userPersonalCode = scalarString(req.query.userPersonalCode);
+    const startDate = scalarString(req.query.startDate);
+    const endDate = scalarString(req.query.endDate);
     const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 10 });
     
     // Build filter object
     const filter = {};
     if (userPersonalCode) filter.userPersonalCode = userPersonalCode;
-    if (startDate) filter.startDate = { $gte: new Date(startDate) };
-    if (endDate) filter.endDate = { $lte: new Date(endDate) };
+    if (startDate) {
+      const parsed = new Date(startDate);
+      if (!Number.isNaN(parsed.getTime())) filter.startDate = { $gte: parsed };
+    }
+    if (endDate) {
+      const parsed = new Date(endDate);
+      if (!Number.isNaN(parsed.getTime())) filter.endDate = { $lte: parsed };
+    }
 
     const users = await User.find({}, { personalCode: 1, name: 1, surname: 1, role: 1, roles: 1, najvisaLiga: 1 });
 
